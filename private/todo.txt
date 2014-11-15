@@ -1,0 +1,13 @@
+working:
+general cf sequences
+
+general->simple sequences obeys consume-limit
+
+have rational->cf-sequence
+
+need:
+forced consumption of n terms interface to general->simple
+
+arithmetic consumer-emitter
+
+base-n emitter

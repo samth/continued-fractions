@@ -20,7 +20,7 @@ and fold terms if possible.
 |#
 
 (define (make-general-cf a b c d) ; [ [a, b], [c, d] ]
-  (when (not (sequences? a b c d))
+  (when (not (andmap sequence? (list a b c d)))
     (error 'make-general-cf "Expected four sequences: ~a"
            (car (filter not-sequence? (list a b c d)))))
   (define (entry->term entry)
