@@ -1,9 +1,15 @@
+############3###
+## Racket
+################
 compiled/
 doc/
+*.txt
+*.pdf
 *.html
 *.css
 *.js
 *.png
+*.jpg
 
 #################
 ## Eclipse
