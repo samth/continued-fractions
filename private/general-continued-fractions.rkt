@@ -3,9 +3,8 @@
          )
 
 ; all procedures here are sequences which release matrix terms ((a b) (c d))
-(provide make-general-cf
+(provide make-general-cf general-cf
          make-simple-cf
-         rational->cf
          )
 
 #|
@@ -22,7 +21,7 @@ is better to utilize the associativity of square matrix multiplication
 and fold terms if possible. 
 |#
 
-(define (make-general-cf a b c d) ; [ [a, b], [c, d] ]
+(define (general-cf a b c d) ; [ [a, b], [c, d] ]
   ; a term  is (t . generator) and the pass structure is ((term term) (term term))
   (when (not (andmap sequence? (list a b c d)))
     (error 'make-general-cf "Expected four sequences: ~a"
@@ -51,6 +50,9 @@ and fold terms if possible.
                `((,A ,B) (,C ,D)))
              continue? #f #f))))
 
+(define (make-general-cf a b)
+  (general-cf a b (endless-values 1) (endless-values 0)))
+
 (define (make-simple-cf terms)
   ; a term is (t . generator) and the pass structure is term
   (when (not (sequence? terms))
@@ -58,7 +60,7 @@ and fold terms if possible.
   (define (continue? position)
     (car position))
   (define (position->terms position)
-    (let ((t (car position)))
+    (let ((t (caar position)))
       `((,t 1) (1 0))))
   (define (next-position position)
     (let ((generator (cdr position)))
@@ -68,35 +70,6 @@ and fold terms if possible.
      (values position->terms
              next-position
              (values->pair (sequence-generate* terms))
-             continue? #f #f))))
-
-(define (rational->cf rat)
-  (when (not (and (number? rat)
-                  (exact? rat)
-                  (rational? rat)))
-    (error 'rational->cf "Expected an exact rational: ~a" rat))
-  ; pass structure it (t num . den)
-  (define (term position) (car position))
-  (define (num position) (cadr position))
-  (define (den position) (cddr position))
-  (define (position->terms position)
-    (let ((t (term position)))
-      `((,t 1) (1 0))))
-  (define (next-position position)
-    (let ((d (den position)))
-      (if (zero? d)
-          '(#f #f . #f)
-          (let-values (((q r) 
-                        (quotient/remainder (num position)
-                                            d)))
-            (cons q (cons d r))))))
-  (define (continue? position)
-    (car position))
-  (make-do-sequence
-   (λ()
-     (values position->terms
-             next-position
-             (next-position `(whatever ,(numerator rat) . ,(denominator rat)))
              continue? #f #f))))
 #| SQUARE ROOTS
 let √N = √(a^2 + b) = a + d

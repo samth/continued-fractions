@@ -64,6 +64,27 @@
 (define (interleave . seqs)
   (interleaver (map (λ(s) (call-with-values (λ() (sequence-generate* s)) cons)) seqs) null))
 
+(define (sequence-map* f . seqs)
+  (struct mapper (seqs)
+    #:property prop:sequence
+    (λ(m)
+      (define (->term m)
+        (apply f (map car (map car (mapper-seqs m)))))
+      (define (->next m)
+        (let ((gens (map cdr (mapper-seqs m))))
+          (mapper (map (λ(g) (values->pair (g))) (map cdr (mapper-seqs m))))))
+      (define (next? m)
+        (andmap car (mapper-seqs m)))
+      (make-do-sequence
+       (λ()
+         (values ->term
+                 ->next
+                 m
+                 next?
+                 #f #f)))))
+  (mapper (map (λ(s) (values->pair (sequence-generate* s))) seqs)))
+
+#|
 (define-generics passable
   (current-term passable)
   (next-passable passable)
@@ -122,5 +143,4 @@
              (cons (initializer (car seqs) first-info)
                    (cdr seqs))
              include-term?
-             #f #f))))
-
+             #f #f)))) ;|#
