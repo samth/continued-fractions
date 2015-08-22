@@ -11,7 +11,9 @@
 ;   as a SEQUENCE of TERMS
 (provide consume-limit precision
          standard-transformer base-transformer
-         rat simple-arithmetic cfce1
+         rat
+         simple-arithmetic cfce1
+         simple-arithmetic-2 cfce2
          ;(struct-out continued-fraction)
          )
 
@@ -66,6 +68,7 @@
 (define-generics consumer-emitter
   (->term consumer-emitter)
   (->next consumer-emitter)
+  (force consumer-emitter)
   (emit-ok? consumer-emitter)
   (init consumer-emitter)
   (emit consumer-emitter)
@@ -90,12 +93,12 @@
 
 (define (standard-transformer t)
   (list (list 0 1) (list 1 (- t))))
-  ;(λ(t) `((0 1) (1 ,(- t)))))
+;(λ(t) `((0 1) (1 ,(- t)))))
 
 (define (base-transformer base)
   (λ(t) (list (list base (- (* base t)))
               (list 0 1))))
-  ;(λ(t) `((,base ,(- (* base t)))(0 1))))
+;(λ(t) `((,base ,(- (* base t)))(0 1))))
 
 
 (define-simple-macro (define-struct-fields struct:id (field:id ...) v:expr)
@@ -188,7 +191,7 @@
    (define (emit-ok? ce)
      (rat-term ce))]
   #:property prop:sequence)
-  
+
 (define (rational->cf rational)
   (init (rat rational)))
 
@@ -196,10 +199,8 @@
   (require rackunit)
   (define (pull cf . terms)
     (if (null? terms)
-        (let ((res (time (for/list ((t cf)) t))))
-          (displayln res) res)
-        (let ((res (time (for/list ((t cf) (i (in-range (car terms)))) t))))
-          (displayln res) res)))
+        (for/list ((t cf)) t)
+        (for/list ((t cf) (i (in-range (car terms)))) t)))
   (check-equal? (pull (rat 123/456))
                 '(0 3 1 2 2 2 2)
                 "Rational check: continued fraction for 123/456")
@@ -232,27 +233,9 @@
              (consume (simple-arithmetic term state* (kar it) gen) (consume-limit))))
          (consume ce (consume-limit))))
    (define (->finish state)
-     (displayln "consume limit reached" (current-error-port))
      (rational->cf (apply / (map car state))))
    (define (init ce)
-     ; here we have a special cycle like in (rat ...) to ensure only the first
-     ; term we emit is negative
-     ; but, sometimes the first term is 0 so there is some jiggery pokery
-     ; to peek ahead and see if the next term is negative, and to fix it
-     ; TODO: actually do this
      (consume ce (consume-limit)))
-     #|
-     (define ce* (consume ce (consume-limit)))
-     (struct-values (term state inner-term generator) ce*)
-     (if (negative? term)
-         (simple-arithmetic (sub1 term) state inner-term generator)
-         (if (zero? term)
-             (let ((ce** (->next ce*)))
-               (if (negative? (simple-arithmetic-term ce**))
-                   (let-values (((it gen) (sequence-generate* ce**)))
-                     (simple-arithmetic term state (kar it) gen))
-                   ce*))
-             ce*))) ;|#
    (define (consume ce limit)
      ; if the generator died, then finish the rational
      ; if we reached our limit for consume attempts, finish the rational
@@ -268,7 +251,10 @@
      (struct-values (term state inner-term generator) ce)
      (if (or (not inner-term)
              (zero? limit))
-         (->finish state)
+         (begin
+           (when (zero? limit)
+             (displayln "consume limit reached" (current-error-port)))
+           (->finish state))
          (let* ((state* (matrix* state (lift inner-term)))
                 (maybe-t (emit-check term state*)))
            (if maybe-t
@@ -291,21 +277,88 @@
                                  (zero? current-term)) ; we may be in a 0 -a -b -c ...
                              (sub1 q1)
                              #f)
-                         q1)))))
-       #;(and (not (zero? c))
-            (not (zero? d))
-            (let ((q1 (quotient a c))
-                  (q2 (quotient b d)))
-              (and (= q1 q2)
-                   (if (negative? q1)
-                       (if (and current-term (zero? current-term))
-                           (sub1 q1)
-                           #f)
-                       q1))))
-       ))
+                         q1)))))))
    (define (emit-ok? ce)
      (simple-arithmetic-term ce))]
   #:property prop:sequence)
+
+(ce-struct base-emitter (term state inner-term generator transformer)
+  #:methods gen:consumer-emitter
+  [(define (->term ce)
+     (base-emitter-term ce))
+   (define (->next ce)
+     ; take the term already pulled by the sequence out of the state matrix
+     ; update the generator
+     ; start looping to generate the next term
+     (struct-values (term state inner-term generator transformer) ce)
+     (if term
+         (if (not state)
+             (base-emitter #f #f #f #f #f)
+             (let ((state* (matrix* (transformer term)
+                                    state)))
+               (if inner-term
+                   (let-values (((it gen) (generator)))
+                     (consume (base-emitter term state* (kar it) gen transformer) (consume-limit)))
+                   (consume (base-emitter term state* inner-term generator transformer) (consume-limit)))))
+         (consume ce (consume-limit))))
+   (define (->finish ce)
+     (struct-values (state) ce)
+     (let ((n (apply quotient (map car state))))
+       (if (zero? n)
+           (base-emitter #f #f #f #f #f)
+           (base-emitter n #f #f #f #f))))
+   (define (init ce)
+     (consume ce (consume-limit)))
+   (define (consume ce limit)
+     ; if the generator died, then finish the rational
+     ; if we reached our limit for consume attempts, finish the rational
+     ; otherwise
+     ; take the generated term and apply it to the state matrix
+     ; see if we can emit a term
+     ; if so, put the term in the field
+     ; otherwise, consume again
+     (define (lift term)
+       (if (number? term)
+           (list (list term 1) (list 1 0))
+           term))
+     (struct-values (term state inner-term generator transformer) ce)
+     (let ((maybe-t (emit-check ce)))
+       (if maybe-t
+           (base-emitter maybe-t state inner-term generator transformer)
+           (if (or (not inner-term)
+                   (zero? limit))
+               (begin
+                 (when (zero? limit)
+                   (displayln "consume limit reached" (current-error-port)))
+                 (->finish ce))
+               (let* ((state* (matrix* state (lift inner-term)))
+                      (maybe-t (emit-check (base-emitter term state* inner-term generator transformer))))
+                 (if maybe-t
+                     (base-emitter maybe-t state* inner-term generator transformer)
+                     (let-values (((it gen) (generator)))
+                       (consume (base-emitter term state* (kar it) gen transformer) (sub1 limit)))))))))
+   (define (emit-check ce)
+     (struct-values (term state inner-term) ce)
+     (let-values (((a b) (apply values (car state)))
+                  ((c d) (apply values (cadr state))))
+       (let ((a+b (+ a b))
+             (c+d (+ c d)))
+         (and (not (zero? c))
+              (not (zero? c+d))
+              (= (sign c) (sign c+d))
+              (let ((q1 (quotient a c))
+                    (q2 (quotient a+b c+d)))
+                (if (not inner-term)
+                    (and (not (zero? q1)) q1)
+                    (and (= q1 q2)
+                         q1)))))))
+   (define (emit-ok? ce)
+     (base-emitter-term ce))]
+  #:property prop:sequence)
+
+(define (cfbe cf base)
+  (let-values (((it gen) (sequence-generate* cf)))
+    (base-emitter #f '((1 0)(0 1)) (kar it) gen (base-transformer base))))
 
 (define (cfce1 cf state)
   (let-values (((it gen) (sequence-generate* cf)))
@@ -316,8 +369,8 @@
                 (pull (rat 801/152))
                 "(+ 5 123/456) = 801/152")
   (let ((sqrt-5 (sequence-append (list 2) (endless-values 4))))
-    (check-equal? (pull (cfce1 sqrt-5 '((1 1) (0 2))) 128)
-                  (build-list 128 (λ(x) 1))
+    (check-equal? (pull (cfce1 sqrt-5 '((1 1) (0 2))) 64)
+                  (build-list 64 (λ(x) 1))
                   "(/ (add1 (sqrt 5)) 2) = phi"))
   (let ((sqrt-5 (sequence-append (list 2) (endless-values 4))))
     ;'(0 -1 -11 -1 -2 -2 -2 -1 -12 -1 -2 -2 -2 -1 -12 -1 -2 -2 -2) ->
@@ -325,3 +378,163 @@
     (check-equal?  (pull (cfce1 sqrt-5 '((1 -5) (0 3))) 20)
                    '(0 -2 1 10 1  2  2  2  1  12  1  2  2  2  1  12  1  2  2  2))))
 
+(ce-struct simple-arithmetic-2 (term state x xgen y ygen)
+  #:methods gen:consumer-emitter
+  [(define (state->values state)
+     (apply values (append (car state) (cadr state))))
+   (define (->term ce)
+     (simple-arithmetic-2-term ce))
+   (define (->finish state)
+     ; we reached a consume limit, so consider x,y->infty
+     (rational->cf (apply / (map car state))))
+   (define (->next ce)
+     ; take the term already pulled by the sequence out of the state matrix
+     ; start looping to generate the next term
+     (struct-values (term state x xgen y ygen) ce)
+     (if term
+         (let ((state* (matrix* (standard-transformer term)
+                                state)))
+           (consume (simple-arithmetic-2 term state* x xgen y ygen) (consume-limit)))
+         (consume ce (consume-limit))))
+   (define (init ce)
+     (consume ce (consume-limit)))
+   (define (consume-which? ce)
+     ; see if the state matrix has different limits for combinations
+     ;
+     ; consuming a term matrix X for x is like the combination
+     ;   ((a c)(e g)).X and ((b d)(f h)).X (which we'll call L and R matrices)
+     ; consuming a term matrix T for y is like the combination
+     ;   ((a b)(e f)).Y and ((c d)(g h)).Y
+     ; so we have to check that each of these submatrices agree in their
+     ;   terms for x->1 or infty and y->1 or infty
+     ; default: just consume X
+     (struct-values (term state) ce)
+     (define-values (a b c d e f g h)
+       (state->values state))
+     (define get-y?
+       (let ((y->infty-num (+ a c))
+             (y->infty-den (+ e g))
+             (y->1-num (+ a b c d))
+             (y->1-den (+ e f g h)))
+         (if (or (zero? y->infty-den)
+                 (zero? y->1-den)
+                 (zero? e)
+                 (zero? f)
+                 (not (= (sign e) (sign f)))
+                 (not (= (quotient a e)
+                         (quotient b f))))
+             #t
+             (not (= (quotient y->infty-num 
+                               y->infty-den)
+                     (quotient y->1-num 
+                               y->1-den))))))
+     (define get-x?
+       (let ((x->infty-num (+ a b))
+              (x->infty-den (+ e f))
+              (x->1-num (+ a b c d))
+              (x->1-den (+ e f g h)))
+          (if (or (zero? x->infty-den)
+                  (zero? x->1-den)
+                  (zero? e)
+                  (zero? g)
+                  (not (= (sign e) (sign g)))
+                  (not (= (quotient a e)
+                          (quotient c g))))
+              #t
+              (not (= (quotient x->infty-num 
+                                x->infty-den)
+                      (quotient x->1-num 
+                                x->1-den))))))
+     (cond ((and get-x? get-y?)
+            'xy)
+           (get-x? 'x)
+           (get-y? 'y)
+           (else
+            (let ((quotients (map quotient (list a b c d) (list e f g h))))
+              (if (not (apply = quotients))
+                  'xy
+                  (let ((q (car quotients)))
+                    (if (negative? q)
+                        (if (or (not term) (zero? term))
+                            (sub1 q)
+                            'xy)
+                        q)))))))
+   (define (emit-ok? ce)
+     (->term ce))
+   (define (consume ce limit)
+     ; if one generator died, then switch to simple arithmetic
+     ; if we reached our limit for consume attempts, finish the rational
+     ; otherwise
+     ; determine which inner term to consume and apply it to the state matrix
+     ; see if we can emit a term
+     ; if so, put the term in the field
+     ; otherwise, consume again
+     (struct-values (term state x xgen y ygen) ce)
+     (cond ((zero? limit)
+            (displayln "consume limit reached" (current-error-port))
+            (->finish state))
+           ((not x)
+            ; x went to infinity, putting axy + bx + cy + d to ay+b
+            (let-values (((a b c d e f g h) (state->values state)))
+              (simple-arithmetic #f (list (list a b) (list e f)) y ygen)))
+           ((not y)
+            ; y went to infinity, putting axy + bx + cy + d to ax+c
+            (let-values (((a b c d e f g h) (state->values state)))
+              (simple-arithmetic #f (list (list a c) (list e g)) x xgen)))
+           (else
+            (let ((maybe-t (consume-which? ce))) 
+              (case maybe-t
+                ((x)
+                 (consume (consume-x ce) (sub1 limit)))
+                ((y)
+                 (consume (consume-y ce) (sub1 limit)))
+                ((xy)
+                 (consume (consume-xy ce) (sub1 limit)))
+                (else
+                 (simple-arithmetic-2 maybe-t state
+                                      x xgen
+                                      y ygen)))))))
+   (define (consume-x ce)
+     ; consuming a term matrix X for x is like the combination
+     ;   ((a c)(e g)).X and ((b d)(f h)).X (which we'll call L and R matrices)
+     (define (lift-x t)
+       (if (number? t)
+           (list (list t 0 1 0)
+                 (list 0 t 0 1)
+                 (list 1 0 0 0)
+                 (list 0 1 0 0))
+           (let-values (((p q) (apply values (car t)))
+                        ((r s) (apply values (cadr t))))
+             (list (list p 0 q 0)
+                   (list 0 p 0 q)
+                   (list r 0 s 0)
+                   (list 0 r 0 s)))))
+     (struct-values (term state x xgen y ygen) ce)
+     (let ((state* (matrix* state (lift-x x))))
+       (let-values (((x* xgen*) (xgen)))
+         (simple-arithmetic-2 term state* (kar x*) xgen* y ygen))))
+   (define (consume-y ce)
+     (define (lift-y t)
+       (if (number? t)
+           (list (list t 1 0 0)
+                 (list 1 0 0 0)
+                 (list 0 0 t 1)
+                 (list 0 0 1 0))
+           (let-values (((p q) (apply values (car t)))
+                        ((r s) (apply values (cadr t))))
+             (list (list p q 0 0)
+                   (list r s 0 0 )
+                   (list 0 0 p q)
+                   (list 0 0 r s)))))
+     (struct-values (term state x xgen y ygen) ce)
+     (let ((state* (matrix* state (lift-y y))))
+       (let-values (((y* ygen*) (ygen)))
+         (simple-arithmetic-2 term state* x xgen (kar y*) ygen*))))
+   (define (consume-xy ce)
+     (consume-y (consume-x ce)))]
+  #:property prop:sequence)
+
+(define (cfce2 x y state)
+  (let-values (((x xgen) (sequence-generate* x))
+               ((y ygen) (sequence-generate* y)))
+    (simple-arithmetic-2 #f state (kar x) xgen (kar y) ygen)))

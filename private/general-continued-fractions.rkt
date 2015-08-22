@@ -1,5 +1,5 @@
 #lang racket/base
-(require "sequence-utils.rkt"
+(require "sequence-utils.rkt" "simple-matrix.rkt"
          )
 
 ; all procedures here are sequences which release matrix terms ((a b) (c d))
@@ -21,7 +21,7 @@ is better to utilize the associativity of square matrix multiplication
 and fold terms if possible. 
 |#
 
-(define (general-cf a b c d) ; [ [a, b], [c, d] ]
+(define (general-cf a b c d #:force (times #f)) ; [ [a, b], [c, d] ]
   ; a term  is (t . generator) and the pass structure is ((term term) (term term))
   (when (not (andmap sequence? (list a b c d)))
     (error 'make-general-cf "Expected four sequences: ~a"
@@ -39,6 +39,20 @@ and fold terms if possible.
          (position->generators current-position)))
   (define (continue? pos) ;die if ANY sequence dies, which it never should
     (andmap (λ(row) (andmap car row)) pos))
+  (define (force pos times)
+    (let loop ((accum (position->terms pos))
+               (pos pos)
+               (times times))
+      (if (zero? times)
+          (let ((gens (position->generators pos)))
+            (map (λ(row-terms row-gen) (map (λ(a b) (cons (list a) b)) row-terms row-gen))
+                 accum gens))
+          (let ((pos* (next-position pos)))
+            (if (not (continue? pos*))
+                (list accum) ; die if ANY sequence dies
+                (let* ((T (position->terms pos*))
+                       (a* (matrix* accum T)))
+                  (loop a* pos* (sub1 times))))))))
   (make-do-sequence
    (λ()
      (values position->terms
@@ -47,11 +61,14 @@ and fold terms if possible.
                    (B (values->pair (sequence-generate* b)))
                    (C (values->pair (sequence-generate* c)))
                    (D (values->pair (sequence-generate* d))))
-               `((,A ,B) (,C ,D)))
+               (let ((start-pos `((,A ,B) (,C ,D))))
+                 (if times
+                     (force start-pos times)
+                     start-pos)))
              continue? #f #f))))
 
-(define (make-general-cf a b)
-  (general-cf a b (endless-values 1) (endless-values 0)))
+(define (make-general-cf a b #:force (times #f))
+  (general-cf a b (endless-values 1) (endless-values 0) #:force times))
 
 (define (make-simple-cf terms)
   ; a term is (t . generator) and the pass structure is term
