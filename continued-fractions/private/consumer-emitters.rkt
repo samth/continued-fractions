@@ -1,7 +1,7 @@
 #lang racket/base
-(require (for-syntax racket/base syntax/parse racket/syntax)
+(require (for-syntax racket/base racket/syntax)
          racket/generic racket/sequence syntax/parse/define
-         racket/match racket/list racket/local
+         racket/match racket/list
          ;"general-continued-fractions.rkt"
          "simple-matrix.rkt"
          "sequence-utils.rkt"
@@ -10,10 +10,12 @@
 ; EVERY public function must return a simple continued fraction
 ;   as a SEQUENCE of TERMS
 (provide consume-limit precision
+         consumer-emitter?
          standard-transformer base-transformer
          rat
          simple-arithmetic cfce1
          simple-arithmetic-2 cfce2
+         base-emitter cfbe
          ;(struct-out continued-fraction)
          )
 
@@ -75,30 +77,12 @@
   (consume consumer-emitter limit)
   )
 
-
-(struct continued-fraction (consumer-emitter)
-  #:property prop:sequence
-  (λ(scf)
-    (when (not (consumer-emitter? (continued-fraction-consumer-emitter scf)))
-      (error 'continued-fraction "Expected a consumer-emitter: ~a"
-             (continued-fraction-consumer-emitter scf)))
-    (make-do-sequence
-     (λ()
-       (values (λ(scf) (->term (continued-fraction-consumer-emitter scf)))
-               (λ(scf) (continued-fraction
-                        (->next (continued-fraction-consumer-emitter scf))))
-               scf
-               (λ(scf) (emit-ok? (continued-fraction-consumer-emitter scf)))
-               #f #f))))) ;|#
-
 (define (standard-transformer t)
   (list (list 0 1) (list 1 (- t))))
-;(λ(t) `((0 1) (1 ,(- t)))))
 
 (define (base-transformer base)
   (λ(t) (list (list base (- (* base t)))
               (list 0 1))))
-;(λ(t) `((,base ,(- (* base t)))(0 1))))
 
 
 (define-simple-macro (define-struct-fields struct:id (field:id ...) v:expr)
@@ -123,7 +107,16 @@
                              emit-ok?
                              #f #f))))
   (struct struct-name (accessors ...)
-    #:transparent
+    #:methods gen:custom-write
+    [(define (write-proc ce port mode)
+       (let* ((t (->term (init ce)))
+              (base-rep (format "(~a ...)" t))
+              (mod (λ(s) (format "<continued-fraction: ~a>" s))))
+          (let ((out (case mode
+                       ((#t) (λ(v p) (write (mod v) p)))
+                       ((#f) display)
+                       (else (λ(v p) (print (mod v) p mode))))))
+            (out base-rep port))))]
     #:methods gen
     [(define-syntax-rule (sv (fld ooo) v)
        (define-struct-fields struct-name (fld ooo) v))
@@ -232,8 +225,12 @@
            (let-values (((it gen) (generator)))
              (consume (simple-arithmetic term state* (kar it) gen) (consume-limit))))
          (consume ce (consume-limit))))
-   (define (->finish state)
-     (rational->cf (apply / (map car state))))
+   (define (->finish ce)
+     (struct-values (state) ce)
+     (let ((ts (map car state)))
+       (if (zero? (cadr ts))
+           (simple-arithmetic #f #f #f #f)
+           (rational->cf (apply / ts)))))
    (define (init ce)
      (consume ce (consume-limit)))
    (define (consume ce limit)
@@ -254,14 +251,15 @@
          (begin
            (when (zero? limit)
              (displayln "consume limit reached" (current-error-port)))
-           (->finish state))
+           (->finish ce))
          (let* ((state* (matrix* state (lift inner-term)))
-                (maybe-t (emit-check term state*)))
+                (maybe-t (emit-check (simple-arithmetic term state* inner-term generator))))
            (if maybe-t
                (simple-arithmetic maybe-t state* inner-term generator)
                (let-values (((it gen) (generator)))
                  (consume (simple-arithmetic term state* (kar it) gen) (sub1 limit)))))))
-   (define (emit-check current-term state)
+   (define (emit-check ce)
+     (struct-values (term state) ce)
      (let-values (((a b) (apply values (car state)))
                   ((c d) (apply values (cadr state))))
        (let ((a+b (+ a b))
@@ -273,14 +271,32 @@
                     (q2 (quotient a+b c+d)))
                 (and (= q1 q2)
                      (if (negative? q1)
-                         (if (or (not current-term)
-                                 (zero? current-term)) ; we may be in a 0 -a -b -c ...
+                         (if (or (not term)
+                                 (zero? term)) ; we may be in a 0 -a -b -c ...
                              (sub1 q1)
                              #f)
                          q1)))))))
    (define (emit-ok? ce)
      (simple-arithmetic-term ce))]
   #:property prop:sequence)
+
+(define (cfce1 cf state)
+  (let-values (((it gen) (sequence-generate* cf)))
+    (simple-arithmetic #f state (kar it) gen)))
+
+(module+ test
+  (check-equal? (pull (cfce1 (rat 123/456) '((1 5) (0 1))))
+                (pull (rat 801/152))
+                "(+ 5 123/456) = 801/152")
+  (let ((sqrt-5 (sequence-append (list 2) (endless-values 4))))
+    (check-equal? (pull (cfce1 sqrt-5 '((1 1) (0 2))) 64)
+                  (build-list 64 (λ(x) 1))
+                  "(/ (add1 (sqrt 5)) 2) = phi"))
+  (let ((sqrt-5 (sequence-append (list 2) (endless-values 4))))
+    ;'(0 -1 -11 -1 -2 -2 -2 -1 -12 -1 -2 -2 -2 -1 -12 -1 -2 -2 -2) ->
+    ;'(0 -2 1 10 1  2  2  2  1  12  1  2  2  2  1  12  1  2  2  2)
+    (check-equal?  (pull (cfce1 sqrt-5 '((1 -5) (0 3))) 20)
+                   '(0 -2 1 10 1  2  2  2  1  12  1  2  2  2  1  12  1  2  2  2))))
 
 (ce-struct base-emitter (term state inner-term generator transformer)
   #:methods gen:consumer-emitter
@@ -331,27 +347,21 @@
                  (when (zero? limit)
                    (displayln "consume limit reached" (current-error-port)))
                  (->finish ce))
-               (let* ((state* (matrix* state (lift inner-term)))
-                      (maybe-t (emit-check (base-emitter term state* inner-term generator transformer))))
-                 (if maybe-t
-                     (base-emitter maybe-t state* inner-term generator transformer)
-                     (let-values (((it gen) (generator)))
-                       (consume (base-emitter term state* (kar it) gen transformer) (sub1 limit)))))))))
+               (let* ((state* (matrix* state (lift inner-term))))
+                 (let-values (((it gen) (generator)))
+                   (consume (base-emitter term state* (kar it) gen transformer) (sub1 limit))))))))
    (define (emit-check ce)
      (struct-values (term state inner-term) ce)
      (let-values (((a b) (apply values (car state)))
                   ((c d) (apply values (cadr state))))
-       (let ((a+b (+ a b))
-             (c+d (+ c d)))
-         (and (not (zero? c))
-              (not (zero? c+d))
-              (= (sign c) (sign c+d))
-              (let ((q1 (quotient a c))
-                    (q2 (quotient a+b c+d)))
-                (if (not inner-term)
-                    (and (not (zero? q1)) q1)
-                    (and (= q1 q2)
-                         q1)))))))
+       ; base terms are from 0 to +/-infty so the check is different
+       (and (not (zero? c))
+            (not (zero? d))
+            (let ((q1 (quotient a c))
+                  (q2 (quotient b d)))
+              (if (or (and (= q1 q2)) (not inner-term))
+                  (if (zero? a) #f q1)
+                  #f)))))
    (define (emit-ok? ce)
      (base-emitter-term ce))]
   #:property prop:sequence)
@@ -360,23 +370,11 @@
   (let-values (((it gen) (sequence-generate* cf)))
     (base-emitter #f '((1 0)(0 1)) (kar it) gen (base-transformer base))))
 
-(define (cfce1 cf state)
-  (let-values (((it gen) (sequence-generate* cf)))
-    (simple-arithmetic #f state (kar it) gen)))
-
 (module+ test
-  (check-equal? (pull (cfce1 (rat 123/456) '((1 5) (0 1))))
-                (pull (rat 801/152))
-                "(+ 5 123/456) = 801/152")
-  (let ((sqrt-5 (sequence-append (list 2) (endless-values 4))))
-    (check-equal? (pull (cfce1 sqrt-5 '((1 1) (0 2))) 64)
-                  (build-list 64 (λ(x) 1))
-                  "(/ (add1 (sqrt 5)) 2) = phi"))
-  (let ((sqrt-5 (sequence-append (list 2) (endless-values 4))))
-    ;'(0 -1 -11 -1 -2 -2 -2 -1 -12 -1 -2 -2 -2 -1 -12 -1 -2 -2 -2) ->
-    ;'(0 -2 1 10 1  2  2  2  1  12  1  2  2  2  1  12  1  2  2  2)
-    (check-equal?  (pull (cfce1 sqrt-5 '((1 -5) (0 3))) 20)
-                   '(0 -2 1 10 1  2  2  2  1  12  1  2  2  2  1  12  1  2  2  2))))
+  (check-equal? (pull (cfbe (rat 1/10) 2) 20)
+                '(0 0 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0))
+  (check-equal? (pull (cfbe (rat 3/2) 3) 20)
+                (build-list 20 (λ(x) 1))))
 
 (ce-struct simple-arithmetic-2 (term state x xgen y ygen)
   #:methods gen:consumer-emitter
@@ -386,7 +384,10 @@
      (simple-arithmetic-2-term ce))
    (define (->finish state)
      ; we reached a consume limit, so consider x,y->infty
-     (rational->cf (apply / (map car state))))
+     (let ((ts (map car state)))
+       (if (zero? (cadr ts))
+           (simple-arithmetic-2 #f #f #f #f #f #f)
+           (rat (round (apply / ts))))))
    (define (->next ce)
      ; take the term already pulled by the sequence out of the state matrix
      ; start looping to generate the next term

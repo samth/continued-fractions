@@ -5,10 +5,30 @@
          "consumer-emitters.rkt")
 
 (provide phi-cf phi-terms
-         pi-terms
-         exp-terms ;log-terms
-         sine-terms cosine-terms tangent-terms
+         pi-cf pi-terms
+         exp-cf exp-terms
+         ln-cf log-cf
+         sine-cf sine-terms cosine-cf cosine-terms tangent-cf tangent-terms
+         hyperbolic-sine-cf hyperbolic-cosine-cf hyperbolic-tangent-cf
+         expt-cf expt-terms
          (all-from-out "consumer-emitters.rkt"))
+
+(module* terms #f
+  (require "consumer-emitters.rkt")
+  (provide phi-terms pi-terms exp-terms
+           sine-terms cosine-terms tangent-terms
+           hyperbolic-sine-cf hyperbolic-cosine-cf hyperbolic-tangent-cf
+           expt-terms
+           (all-from-out "consumer-emitters.rkt")))
+
+(module* cfs #f
+  (require "consumer-emitters.rkt")
+  (provide phi-cf pi-cf
+           exp-cf
+           ln-cf log-cf
+           sine-cf cosine-cf tangent-cf
+           expt-cf
+           (all-from-out "consumer-emitters.rkt")))
 
 (define-syntax (define-continued-fraction stx)
   (let ((hyphenate (λ(base end) (string->symbol (format "~a-~a" base end)))))
@@ -105,6 +125,45 @@
                       88250721088256169900164260299781937337302784521501669725657881353/334793927275157099977828070462712014573208871193375356742100358854
                       424341140432488081310930105724962594875896975065061628279766603099342/5255280393630844818098354474555432361881446816634028387976716119347
                       88535850947358374997591564469700139137905865620869096021706911141/70505082058619621387977193310299292277413734534000392321660004996)))
+
+(define (ln-cf x)
+  (define-continued-fraction (ln-base z) ;1+x/y
+    (define x (numerator (sub1 z)))
+    (define y (denominator (sub1 z)))
+    (define numerators* (sequence-map (λ(t) (* x t)) (in-naturals 1)))
+    (define numerators (sequence-append (list x)
+                                        (interleave numerators* numerators*)))
+    (define denom-1 (sequence-map (λ(t) (* y t)) odds))
+    (define denom-2 (endless-values 2))
+    (define denominators (sequence-append (list 0)
+                                          (interleave denom-1 denom-2)))
+    (make-general-cf denominators numerators))
+  ; calculating logs means we need to turn multiplication into addition
+  ; find values a,b,n such that x = b*a^n
+  ; this is easy to do if we assume a is something nice like 5/4
+  ; find the "rational root" n and solve for b
+  (define (decompose x)
+    (define (get-exponent z r)
+      (if (< z 2)
+          0
+          (+ 1 (get-exponent (/ z r) r))))
+    (define a 5/4)
+    (define n (get-exponent x a))
+    (define b (/ x (expt a n)))
+    (values a b n))
+  (cond ((<= x 0)
+         (error 'ln-cf "Real logarithm undefined for (<= 0 x): ~a" x))
+        ((< 0 x 2)
+         (ln-base-cf x))
+        (else
+         (let-values (((a b n) (decompose x)))
+           ; now we have ln(x) => ln(b*a^n) = n*ln(a) + ln(b)
+           (cfce2 (ln-base-cf a) (ln-cf b) `((0 ,n 1 0)(0 0 0 1)))))))
+
+(define (log-cf base x)
+  (cfce2 (ln-cf x) (ln-cf base) '((0 1 0 0)(0 0 1 0))))
+
+
 (define-continued-fraction (cosine x)
   ; derived from maclaurin expansion for cosine
   (define x^2 (* x x))
@@ -218,13 +277,27 @@
                 (loop (sub1 P) Q)
                 (loop P (add1 Q))))))))
 
+(define (quadratic-cf +? a b c)
+  (define discriminant (- (* b b) (* 4 a c)))
+  (cond ((zero? a)
+         (rat (/ (- c) b)))
+        ((zero? b)
+         (expt-cf (/ (- c) a) 1/2))
+        ((zero? c)
+         (rat (/ (- b) a)))
+        ((negative? discriminant)
+         (error 'solve-quadratic "Complex roots"))
+        (else
+         (cfce1 (expt-terms discriminant 1/2) `((,(if (eq? +? '+) 1 -1) ,(- b))
+                                               (0 ,(* 2 a)))))))
+
 (define-continued-fraction (expt base exponent)
   ; ridiculously complicated form in programming that looks nice on paper
   ; reference "General Method for Extracting Roots using (Folded) Continued Fractions" by Manny Sardina
   ; modified so that the base and exponent rational terms in the continued fraction have been replaced
   ;   with integers
   ;   this form assumes the exponent is less than 1
-  ;   if it is greater than one, it applies the power and take the root
+  ;   if it is greater than one, it applies the power and then takes the root
   (define-values (m n)
     (values (numerator exponent) (denominator exponent)))
   (cond ((and (negative? exponent)
@@ -270,7 +343,7 @@
                            (sequence-append (list Q^m) (endless-values 0)))))))))
 
 (module+ test
-  (check-convergents (λ(exp) (expt-cf 7933/17417 exp)) ; nth primes 1001 and 2002
+  (check-convergents (λ(exp) (expt-cf 7933/17417 exp)) 
                      (1/2 2/3 3/4 4/5 5/6 6/5 5/4 4/3 3/2)
                      (1404223170283508601133126886570380382/2080674207431828538335112883732446055
                       28000492469076778327934374556785/47299469312293507579108688166604
@@ -284,3 +357,26 @@
   (check-equal? (pull (cfce2 (expt-cf 2 2/3) (expt-cf 1/3 2/3) '((1 0 0 0)(0 0 0 1))) 64)
                 (pull (expt-cf 2/3 2/3) 64)
                 "(* (expt 2 2/3) (expt 1/3 2/3)) = (expt 2/3 2/3)"))
+
+(define (hyperbolic-sine-cf x)
+  ;(e^x - e^-x)/2
+  (cfce2 (exp-cf x) (exp-cf (- x)) '((0 1 -1 0)(0 0 0 2))))
+(define (hyperbolic-cosine-cf x)
+  ;(e^x + e^-x)/2
+  (cfce2 (exp-cf x) (exp-cf (- x)) '((0 1 1 0)(0 0 0 2))))
+(define (hyperbolic-tangent-cf x)
+  ;(e^x - e^-x)/(e^x + e^-x)
+  (cfce2 (exp-cf x) (exp-cf (- x)) '((0 1 -1 0)(0 1 1 0))))
+
+(define (to-file cf num-terms)
+  (local-require racket/gui/base)
+  (let ((f (get-file)))
+    (when f
+      (with-output-to-file f
+        (λ()
+          (for ((t (cfbe cf 26))
+                (i (in-range num-terms)))
+            (display (integer->char (+ 97 t)))))
+        #:mode 'text #:exists 'replace))))
+
+(provide to-file)
