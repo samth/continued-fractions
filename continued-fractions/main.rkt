@@ -1,9 +1,14 @@
 #lang racket/base
 (require "arithmetic.rkt"
-         (only-in "private/consumer-emitters.rkt" cfbe)
-         (submod "private/continued-fractions.rkt" cfs))
+         "private/continued-fractions.rkt")
 
 (provide (all-from-out "arithmetic.rkt")
-         (all-from-out (submod "private/continued-fractions.rkt" cfs))
-         cfbe
+         phi-cf pi-cf
+         exp-cf
+         ln-cf log-cf
+         sine-cf cosine-cf tangent-cf
+         hyperbolic-sine-cf hyperbolic-cosine-cf hyperbolic-tangent-cf
+         expt-cf
+         rational->cf cf-terms->rational
+         precision cfbe cfpe
          )

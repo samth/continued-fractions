@@ -1,7 +1,5 @@
 #lang racket/base
 
-(require racket/generic
-         )
 
 (provide (all-defined-out)
          #|sequences? not-sequence?

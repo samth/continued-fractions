@@ -1,8 +1,9 @@
 #lang scribble/manual
 @(require scribble/eval
-          "main.rkt"
+          ;"main.rkt"
           (for-label racket
                      "main.rkt"
+                     "bases.rkt"
                      )
           )
 @(define (author-email) "deren.dohoda@gmail.com")
@@ -111,12 +112,9 @@ fraction procedures of transcendental and algebraic functions tend to produce an
          (or/c exact-integer? consumer-emitter?)]
 @defproc[(cf/ [v (or/c exact-integer? consumer-emitter?)] ...)
          (or/c exact-integer? consumer-emitter?)]{Standard arithmetic procedures for continued fractions.}
-@(define this-eval
-   (let ([eval (make-base-eval)])
-     (eval '(begin
-              (require ;racket/draw 
-                "main.rkt")))
-     eval))
+@(define this-eval (make-base-eval))
+@interaction-eval[#:eval this-eval
+                         (require "main.rkt")]
 @examples[#:eval this-eval
           (for/list ((t (cf/ (pi-cf) (phi-cf) (expt-cf 2 1/2)))
                      (i (in-range 20)))
@@ -146,8 +144,9 @@ of terms continued fractions are allowed to consume while they attempt to produc
  in some other way (e.g. through the use of @racket[(in-range 20)] in a
  for-clause). This is equivalent to pulling terms from the continued
  fraction itself.}
+@interaction-eval[#:eval this-eval
+                         (require (only-in racket/math pi))]
 @examples[#:eval this-eval
-          (require racket/math)
           (define ~pi
             (parameterize ((precision 1000))
               (for/list ((t (cfpe (pi-cf))))
@@ -175,10 +174,12 @@ of terms continued fractions are allowed to consume while they attempt to produc
  respect the limits of the base as there is otherwise no way to determine
  where it would end, so this is mostly interesting for the
  fractional parts of numbers.
-
-The base emitter does not emit terms as a usual continued fraction where only the
-first non-zero term is allowed to be negative since that would change the value
-of the integer-part; instead, all terms are negative.}
+ 
+ The base emitter does not emit terms as a usual continued fraction where only the
+ first non-zero term is allowed to be negative since that would change the value
+ of the integer-part; instead, all terms are negative.}
+@interaction-eval[#:eval this-eval
+                         (require racket/math)]
 @examples[#:eval this-eval
           (define phi (cf/ (cf+ 1 (expt-cf 5 1/2)) 2))
           phi
@@ -216,13 +217,13 @@ other and the string. The radix can be @racket[#f], in which case it is never di
 Converts a continued fraction, or a representation of one as a list of exact integers, into
 a string based on the parameter @racket[representation].
 @defparam[digits v (and/c number? exact? (not/c negative?))
-                 #:value 10]
+          #:value 10]
 Controls the number of fractional digits produced by @racket[continued-fraction->string].
-
+@interaction-eval[#:eval this-eval
+                         (require "bases.rkt")]
 @examples[#:eval this-eval
-                 (require continued-fractions/bases)
-                 (define p (make-representation #:radix #\_
-                                                #:negate #\$
-                                                #:terms "abcdefghij"))
-                 (parameterize ((representation p))
-                   (continued-fraction->string (rational->cf 11/3)))]
+          (define p (make-representation #:radix #\_
+                                         #:negate #\$
+                                         #:terms "abcdefghij"))
+          (parameterize ((representation p))
+            (continued-fraction->string (rational->cf 11/3)))]

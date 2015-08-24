@@ -50,8 +50,10 @@
 (define representation
   (make-parameter (make-representation)
                   (λ(v)
-                    (error 'representation
-                           "make-representation procedure required"))))
+                    (if (rep? v)
+                        v
+                        (error 'representation
+                               "make-representation procedure required")))))
 
 (define digits
   (make-parameter 10

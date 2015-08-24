@@ -1,6 +1,5 @@
 #lang racket/base
-(require user/list-utils
-         racket/list
+(require racket/list
          )
 (provide matrix?
          matrix+ matrix*

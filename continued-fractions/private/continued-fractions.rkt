@@ -13,23 +13,6 @@
          expt-cf expt-terms
          (all-from-out "consumer-emitters.rkt"))
 
-(module* cfs #f
-  (require "consumer-emitters.rkt")
-  (provide phi-cf pi-cf
-           exp-cf
-           ln-cf log-cf
-           sine-cf cosine-cf tangent-cf
-           hyperbolic-sine-cf hyperbolic-cosine-cf hyperbolic-tangent-cf
-           expt-cf
-           rational->cf cfpe))
-
-(module* terms #f
-  (require "consumer-emitters.rkt")
-  (provide phi-terms pi-terms exp-terms
-           sine-terms cosine-terms tangent-terms
-           expt-terms
-           (all-from-out "consumer-emitters.rkt")))
-
 (define-syntax (define-continued-fraction stx)
   (let ((hyphenate (λ(base end) (string->symbol (format "~a-~a" base end)))))
     (syntax-case stx ()
