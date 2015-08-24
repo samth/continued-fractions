@@ -5,7 +5,8 @@
 
 (provide representation make-representation
          continued-fraction->string
-         rep?)
+         rep?
+         digits)
 
 (struct rep (radix negate terms)
   #:prefab)
@@ -111,12 +112,15 @@
                                  (i (in-range (add1 (digits))))) ; add1 because of leading integer-part
                         t)
                       cf))
+  (define radix (rep-radix (representation)))
   (define i-part (integer->string (abs (car cf-list))))
   (define f-part (map (λ(n) (number->rep 'continued-fraction->string n))
                       (map abs (cdr cf-list))))
   (string-append (if (negative? (cadr cf-list)) (format "~a" (get-negate)) "")
                  i-part
-                 (list->string (cons (rep-radix (representation)) f-part))))
+                 (if radix
+                     (list->string (cons radix f-part))
+                     (list->string f-part))))
 
 #;(define (number->string n)
   (if (not (number? n))
