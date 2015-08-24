@@ -1,12 +1,10 @@
 #lang scribble/manual
 @(require scribble/eval
-          racket/sandbox
           (for-label racket
                      "main.rkt"
                      )
           )
 
-@(sandbox-gui-available #f)
 @(define (author-email) "deren.dohoda@gmail.com")
 
 @title[#:tag "cf-top"]{Elementary Continued Fraction Arithmetic Package}
@@ -115,7 +113,8 @@ fraction procedures of transcendental and algebraic functions tend to produce an
          (or/c exact-integer? consumer-emitter?)]{Standard arithmetic procedures for continued fractions.}
 @(define this-eval (make-base-eval))
 @interaction-eval[#:eval this-eval
-                         (require "main.rkt")]
+                         (require (only-in racket/math pi)
+                                  "main.rkt")]
 @examples[#:eval this-eval
           (for/list ((t (cf/ (pi-cf) (phi-cf) (expt-cf 2 1/2)))
                       (i (in-range 20)))
@@ -145,8 +144,6 @@ of terms continued fractions are allowed to consume while they attempt to produc
  in some other way (e.g. through the use of @racket[(in-range 20)] in a
  for-clause). This is equivalent to pulling terms from the continued
  fraction itself.}
-@interaction-eval[#:eval this-eval
-                         (require (only-in racket/math pi))]
 @examples[#:eval this-eval
           (define ~pi
              (parameterize ((precision 1000))
