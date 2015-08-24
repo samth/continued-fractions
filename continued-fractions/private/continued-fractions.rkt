@@ -354,16 +354,3 @@
 (define (hyperbolic-tangent-cf x)
   ;(e^x - e^-x)/(e^x + e^-x)
   (cfce2 (exp-cf x) (exp-cf (- x)) '((0 1 -1 0)(0 1 1 0))))
-
-(define (to-file cf num-terms)
-  (local-require racket/gui/base)
-  (let ((f (get-file)))
-    (when f
-      (with-output-to-file f
-        (λ()
-          (for ((t (cfbe cf 26))
-                (i (in-range num-terms)))
-            (display (integer->char (+ 97 t)))))
-        #:mode 'text #:exists 'replace))))
-
-(provide to-file)
