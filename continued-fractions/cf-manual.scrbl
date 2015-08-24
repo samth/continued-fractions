@@ -178,8 +178,6 @@ of terms continued fractions are allowed to consume while they attempt to produc
  The base emitter does not emit terms as a usual continued fraction where only the
  first non-zero term is allowed to be negative since that would change the value
  of the integer-part; instead, all terms are negative.}
-@interaction-eval[#:eval this-eval
-                         (require racket/math)]
 @examples[#:eval this-eval
           (define phi (cf/ (cf+ 1 (expt-cf 5 1/2)) 2))
           phi
