@@ -35,14 +35,17 @@ a string based on the parameter @racket[representation].
 Controls the number of fractional digits produced by @racket[continued-fraction->string].
 @(define this-eval (make-base-eval))
 @interaction-eval[#:eval this-eval
-                  (require "main.rkt"
-                           "bases.rkt")]
+                         (require "main.rkt" "bases.rkt")]
 @examples[#:eval this-eval
           (define p (make-representation #:radix #\_
                                          #:negate #\$
                                          #:terms "abcdefghij"))
           (parameterize ((representation p))
             (continued-fraction->string (rational->cf 11/3)))
+          (parameterize ((representation
+                           (make-representation #:terms "01"))
+                         (digits 20))
+             (continued-fraction->string (tangent-cf #e3.14)))
           (parameterize ((digits 20))
             (continued-fraction->string (phi-cf)))
           (define ~phi

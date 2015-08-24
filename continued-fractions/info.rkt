@@ -1,2 +1,2 @@
 #lang info
-(define scribblings '(("cf-manual.scrbl" ())))
+(define scribblings '(("cf-manual.scrbl" (multi-page))))

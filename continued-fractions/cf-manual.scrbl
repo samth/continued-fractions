@@ -5,6 +5,7 @@
                      "main.rkt"
                      )
           )
+
 @(sandbox-gui-available #f)
 @(define (author-email) "deren.dohoda@gmail.com")
 
@@ -117,8 +118,8 @@ fraction procedures of transcendental and algebraic functions tend to produce an
                          (require "main.rkt")]
 @examples[#:eval this-eval
           (for/list ((t (cf/ (pi-cf) (phi-cf) (expt-cf 2 1/2)))
-                     (i (in-range 20)))
-            t)]
+                      (i (in-range 20)))
+             t)]
 @subsection{Controlling Behavior}
 There are two ways provided to control the behavior of continued fractions. The first is to limit the number
 of terms continued fractions are allowed to consume while they attempt to produce the next output term.
@@ -148,16 +149,16 @@ of terms continued fractions are allowed to consume while they attempt to produc
                          (require (only-in racket/math pi))]
 @examples[#:eval this-eval
           (define ~pi
-            (parameterize ((precision 1000))
-              (for/list ((t (cfpe (pi-cf))))
-                t)))
+             (parameterize ((precision 1000))
+               (for/list ((t (cfpe (pi-cf))))
+                 t)))
           ~pi
           (abs (/ (- pi (cf-terms->rational ~pi))))
           (parameterize ((precision 3748630))
-            (for/list ((t (cfpe (pi-cf))))
-              t))
+             (for/list ((t (cfpe (pi-cf))))
+               t))
           (displayln
-           (parameterize ((precision +inf.0))
+            (parameterize ((precision +inf.0))
              (for/list ((t (cfpe (pi-cf)))
                         (i (in-range 40)))
                t)))
