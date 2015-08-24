@@ -7,7 +7,7 @@
           )
 @(define (author-email) "deren.dohoda@gmail.com")
 
-@title[#:tag "top"]{Base Conversion Package}
+@title[#:tag "cf-bases-top"]{Base Conversion Package}
 @author{@(author+email "Deren Dohoda" (author-email))}
 
 @defmodule[continued-fractions/bases]

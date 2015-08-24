@@ -1,13 +1,14 @@
 #lang scribble/manual
 @(require scribble/eval
+          racket/sandbox
           (for-label racket
                      "main.rkt"
-                     "bases.rkt"
                      )
           )
+@(sandbox-gui-available #f)
 @(define (author-email) "deren.dohoda@gmail.com")
 
-@title[#:tag "top"]{Elementary Continued Fraction Arithmetic Package}
+@title[#:tag "cf-top"]{Elementary Continued Fraction Arithmetic Package}
 @author{@(author+email "Deren Dohoda" (author-email))}
 
 @defmodule[continued-fractions]
