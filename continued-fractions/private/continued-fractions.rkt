@@ -1,5 +1,7 @@
-#lang racket
-(require (only-in math/number-theory integer-root)
+#lang racket/base
+(require (for-syntax racket/base)
+         (only-in math/number-theory integer-root)
+         racket/sequence
          "sequence-utils.rkt"
          "general-continued-fractions.rkt"
          "consumer-emitters.rkt")

@@ -2,7 +2,6 @@
 (require (for-syntax racket/base racket/syntax)
          racket/generic racket/sequence syntax/parse/define
          racket/match racket/list
-         ;"general-continued-fractions.rkt"
          "simple-matrix.rkt"
          "sequence-utils.rkt"
          )
@@ -19,8 +18,8 @@
          base-emitter cfbe
          precision-emitter cfpe
          )
-
-#;(define (quotient*/remainder a b)
+#|
+(define (quotient*/remainder a b)
   (local-require racket/math)
   (define a/b*
     (let ((b* (conjugate b)))
@@ -33,9 +32,9 @@
         (let ((r (- a (* b q))))
           (values q r))))))
 
-#;(define (quotient* a b)
+(define (quotient* a b)
   (let-values (((q r) (quotient*/remainder a b)))
-    q))
+    q)) ;|#
 
 (define (sign x)
   (if (negative? x)

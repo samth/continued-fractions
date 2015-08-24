@@ -1,5 +1,6 @@
 #lang racket/base
-(require "sequence-utils.rkt" "simple-matrix.rkt"
+(require "sequence-utils.rkt"
+         "simple-matrix.rkt"
          )
 
 ; all procedures here are sequences which release matrix terms ((a b) (c d))

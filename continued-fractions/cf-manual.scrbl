@@ -1,6 +1,5 @@
 #lang scribble/manual
 @(require scribble/eval
-          ;"main.rkt"
           (for-label racket
                      "main.rkt"
                      "bases.rkt"
@@ -226,4 +225,5 @@ Controls the number of fractional digits produced by @racket[continued-fraction-
                                          #:negate #\$
                                          #:terms "abcdefghij"))
           (parameterize ((representation p))
-            (continued-fraction->string (rational->cf 11/3)))]
+            (continued-fraction->string (rational->cf 11/3)))
+          (continued-fraction->string (cfbe (phi-cf) 10))]
