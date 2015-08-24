@@ -198,32 +198,4 @@ of terms continued fractions are allowed to consume while they attempt to produc
                      (i (in-range 20)))
             t)]
 
-@section{Arbitrary Base Conversion}
-@defmodule[continued-fractions/bases]
-The bindings in this section are not imported with @racket[continued-fractions].
-@defparam[representation v rep? #:value decimal-representation]
-@defproc[(make-representation [#:radix rad (or/c #f char/c) #\.]
-                              [#:negate neg char/c #\-]
-                              [#:terms ts string? "0123456789"]) rep?]
-This parameter controls the way string conversions happen. It contains information
-about which symbols to use for which numbers, what symbol to use as a radix point, and
-which symbol to use as a negative sign. It is intended to be constructed through
-@racket[make-representation]. @racket[make-representation] checks that every part
-of the string is unique and checks that the radix and negate characters differ from each
-other and the string. The radix can be @racket[#f], in which case it is never displayed.
-@defproc[(continued-fraction->string [cf (or/c consumer-emitter? (listof exact-integer?))])
-         string?]
-Converts a continued fraction, or a representation of one as a list of exact integers, into
-a string based on the parameter @racket[representation].
-@defparam[digits v (and/c number? exact? (not/c negative?))
-          #:value 10]
-Controls the number of fractional digits produced by @racket[continued-fraction->string].
-@interaction-eval[#:eval this-eval
-                         (require "bases.rkt")]
-@examples[#:eval this-eval
-          (define p (make-representation #:radix #\_
-                                         #:negate #\$
-                                         #:terms "abcdefghij"))
-          (parameterize ((representation p))
-            (continued-fraction->string (rational->cf 11/3)))
-          (continued-fraction->string (cfbe (phi-cf) 10))]
+@include-section["cf-bases.scrbl"]

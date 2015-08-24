@@ -121,12 +121,3 @@
                  (if radix
                      (list->string (cons radix f-part))
                      (list->string f-part))))
-
-#;(define (number->string n)
-  (if (not (number? n))
-      #f
-      (local [(define base (vector-length (get-base)))
-              (define-values (i-part f-part)
-                (let-values (((q r) (quotient/remainder (numerator n) (denominator n))))
-                  (values q (/ (abs r) (denominator n)))))]
-        (continued-fraction->string (rat (inexact->exact n))))))
