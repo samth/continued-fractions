@@ -12,14 +12,15 @@
 (provide consume-limit precision
          consumer-emitter?
          standard-transformer base-transformer
-         rat
+         cf-terms->rational
+         rat rational->cf
          simple-arithmetic cfce1
          simple-arithmetic-2 cfce2
          base-emitter cfbe
-         ;(struct-out continued-fraction)
+         precision-emitter cfpe
          )
 
-(define (quotient*/remainder a b)
+#;(define (quotient*/remainder a b)
   (local-require racket/math)
   (define a/b*
     (let ((b* (conjugate b)))
@@ -32,7 +33,7 @@
         (let ((r (- a (* b q))))
           (values q r))))))
 
-(define (quotient* a b)
+#;(define (quotient* a b)
   (let-values (((q r) (quotient*/remainder a b)))
     q))
 
@@ -83,6 +84,16 @@
 (define (base-transformer base)
   (λ(t) (list (list base (- (* base t)))
               (list 0 1))))
+
+(define (cf-terms->rational lots)
+  (when (not (and (list? lots)
+                  (andmap (λ(t) (and (number? t) (exact? t)))
+                          lots)))
+    (error 'cf-terms->rational
+           "Expected a list of exact numbers."))
+  (define (step t accum)
+    (if (zero? accum) t (+ t (/ accum))))
+  (foldr step 0 lots))
 
 
 (define-simple-macro (define-struct-fields struct:id (field:id ...) v:expr)
@@ -146,12 +157,14 @@
      ; might yield a 0 and then a 1 0 c ... = a (+ 1 c) ...
      (define r (rat-term ce))
      (define cf
-       (let loop ((n (numerator r))
-                  (d (denominator r)))
-         (let-values (((q r) (quotient/remainder n d)))
-           (if (zero? r)
-               (list q)
-               (cons q (loop d r))))))
+       (if (number? r)
+           (let loop ((n (numerator r))
+                      (d (denominator r)))
+             (let-values (((q r) (quotient/remainder n d)))
+               (if (zero? r)
+                   (list q)
+                   (cons q (loop d r)))))
+           r))
      (define (adjust cf)
        (define (fix-last-1 t)
          (match t
@@ -297,6 +310,93 @@
     ;'(0 -2 1 10 1  2  2  2  1  12  1  2  2  2  1  12  1  2  2  2)
     (check-equal?  (pull (cfce1 sqrt-5 '((1 -5) (0 3))) 20)
                    '(0 -2 1 10 1  2  2  2  1  12  1  2  2  2  1  12  1  2  2  2))))
+
+(ce-struct precision-emitter (term state accum inner-term generator)
+  #:methods gen:consumer-emitter
+  [(define (->term ce)
+     (precision-emitter-term ce))
+   (define (->next ce)
+     ; take the term already pulled by the sequence out of the state matrix
+     ; start looping to generate the next term
+     (struct-values (term state accum inner-term generator) ce)
+     (if term
+         (if (not state)
+             (precision-emitter #f #f #f #f #f)
+             (if (not accum) ; we reached precision
+                 (precision-emitter #f #f #f #f #f)
+                 (let ((state* (matrix* (standard-transformer term)
+                                        state))
+                       (accum* (if (< (precision) (abs (apply * accum))) #f accum)))
+                   (consume (precision-emitter term state* accum* inner-term generator) (consume-limit)))))
+         (consume ce (consume-limit))))
+   (define (->finish ce)
+     (struct-values (state) ce)
+     (if (not state)
+         (precision-emitter #f #f #f #f #f)
+         (let ((ts (map car state)))
+           (if (zero? (cadr ts))
+               (precision-emitter #f #f #f #f #f)
+               (rational->cf (apply / ts))))))
+   (define (init ce)
+     (consume ce (consume-limit)))
+   (define (consume ce limit)
+     ; if the generator died, then finish the rational
+     ; if we reached our limit for consume attempts, finish the rational
+     ; otherwise
+     ; take the generated term and apply it to the state matrix
+     ; see if we can emit a term
+     ; if so, put the term in the field
+     ; otherwise, consume again
+     (define (lift term)
+       (if (number? term)
+           (list (list term 1) (list 1 0))
+           term))
+     (define (update-accum a t)
+       (define-values (p q) (apply values (car t)))
+       (define-values (r s) (apply values (cadr t)))
+       (define-values (c d) (apply values a))
+       (list (+ (* c p) (* d r)) (+ (* c q) (* d s))))
+     (struct-values (term state accum inner-term generator) ce)
+     (if (zero? limit)
+         (begin
+           (displayln "consume limit reached" (current-error-port))
+           (->finish ce))
+         (let ((maybe-t (emit-check ce)))
+           (if maybe-t
+               (precision-emitter maybe-t state accum inner-term generator)
+               (if (not inner-term)
+                   (->finish ce)
+                   (let* ((t (lift inner-term))
+                          (state* (matrix* state t))
+                          (accum* (and accum (update-accum accum t))))
+                     (let-values (((it gen) (generator)))
+                       (consume (precision-emitter term state* accum* (kar it) gen) (sub1 limit)))))))))
+   (define (emit-check ce)
+     (struct-values (term state) ce)
+     (let-values (((a b) (apply values (car state)))
+                  ((c d) (apply values (cadr state))))
+       (let ((a+b (+ a b))
+             (c+d (+ c d)))
+         (and (not (zero? c))
+              (not (zero? c+d))
+              (= (sign c) (sign c+d))
+              (let ((q1 (quotient a c))
+                    (q2 (quotient a+b c+d)))
+                (and (= q1 q2)
+                     (if (negative? q1)
+                         (if (or (not term)
+                                 (zero? term)) ; we may be in a 0 -a -b -c ...
+                             (sub1 q1)
+                             #f)
+                         q1)))))))
+   (define (emit-ok? ce)
+     (precision-emitter-term ce))]
+  #:property prop:sequence
+  )
+
+(define (cfpe cf)
+  (let-values (((it gen) (sequence-generate* cf)))
+    (precision-emitter #f '((1 0)(0 1)) '(0 1) (kar it) gen)))
 
 (ce-struct base-emitter (term state inner-term generator transformer)
   #:methods gen:consumer-emitter

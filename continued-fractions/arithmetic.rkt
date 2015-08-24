@@ -2,17 +2,19 @@
 (require racket/list
          "private/consumer-emitters.rkt")
 
-(provide plus minus times divide)
+(provide cf+ cf- cf* cf/)
+
+
 
 (define-syntax-rule (define-binop (name L R) [both-numbers first-number second-number both-cf])
   (define (name L R)
-    (cond ((and (integer? L) (integer? R)) both-numbers)
-          ((and (integer? L) (consumer-emitter? R)) first-number)
-          ((and (consumer-emitter? L) (integer? R)) second-number)
+    (cond ((and (exact-integer? L) (exact-integer? R)) both-numbers)
+          ((and (exact-integer? L) (consumer-emitter? R)) first-number)
+          ((and (consumer-emitter? L) (exact-integer? R)) second-number)
           ((and (consumer-emitter? L) (consumer-emitter? R) both-cf))
           (else
            (error 'name
-                  "Expected numbers or continued fractions:\n\t~a\n\t~a"
+                  "Expected exact integers or continued fractions:\n\t~a\n\t~a"
                 L R)))))
   
 (define-binop (bin+ a b)
@@ -39,7 +41,7 @@
    (cfce1 a `((1 0)(0 ,b)))
    (cfce2 a b `((0 1 0 0)(0 0 1 0)))])
 
-(define (plus . ts)
+(define (cf+ . ts)
   (define L (length ts))
   (cond ((zero? L)
          0)
@@ -52,7 +54,7 @@
                (ns (filter integer? ts)))
            (foldl bin+ (apply + ns) cfs)))))
 
-(define (minus . ts)
+(define (cf- . ts)
   (define L (length ts))
   (cond ((zero? L)
          (error 'minus "minus requires at least one argument."))
@@ -61,9 +63,9 @@
         ((= 1 L)
          (bin- 0 (car ts)))
         (else
-         (bin- (car ts) (apply plus (cdr ts))))))
+         (bin- (car ts) (apply cf+ (cdr ts))))))
 
-(define (times . ts)
+(define (cf* . ts)
   (define L (length ts))
   (cond ((zero? L)
          1)
@@ -74,7 +76,7 @@
         (else
          (foldl bin* (car ts) (cdr ts)))))
 
-(define (divide . ts)
+(define (cf/ . ts)
   (define L (length ts))
   (cond ((zero? L)
          (error 'divide "divide requires at least one argument."))
@@ -83,4 +85,4 @@
         ((= 1 L)
          (bin/ 1 (car ts)))
         (else
-         (bin/ (car ts) (apply times (cdr ts))))))
+         (bin/ (car ts) (apply cf* (cdr ts))))))

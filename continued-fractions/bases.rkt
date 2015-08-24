@@ -3,6 +3,10 @@
 (require racket/local
          "private/consumer-emitters.rkt")
 
+(provide representation make-representation
+         continued-fraction->string
+         rep?)
+
 (struct rep (radix negate terms)
   #:prefab)
 
@@ -32,8 +36,8 @@
     (error "Expected a string containing unique terms."))
   (when (not (char? n))
     (error "Expected a character for negate symbol."))
-  (when (not (char? r))
-    (error "Expected a character for the radix point symbol."))
+  (when (and (not r) (not (char? r)))
+    (error "Expected a character or #f for the radix point symbol."))
   (define terms (string->list s))
   (when (member n terms)
     (error "Negate symbol cannot be a term."))
@@ -112,7 +116,7 @@
                  i-part
                  (list->string (cons (rep-radix (representation)) f-part))))
 
-(define (number->string n)
+#;(define (number->string n)
   (if (not (number? n))
       #f
       (local [(define base (vector-length (get-base)))

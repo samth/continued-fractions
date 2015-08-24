@@ -13,21 +13,21 @@
          expt-cf expt-terms
          (all-from-out "consumer-emitters.rkt"))
 
-(module* terms #f
-  (require "consumer-emitters.rkt")
-  (provide phi-terms pi-terms exp-terms
-           sine-terms cosine-terms tangent-terms
-           hyperbolic-sine-cf hyperbolic-cosine-cf hyperbolic-tangent-cf
-           expt-terms
-           (all-from-out "consumer-emitters.rkt")))
-
 (module* cfs #f
   (require "consumer-emitters.rkt")
   (provide phi-cf pi-cf
            exp-cf
            ln-cf log-cf
            sine-cf cosine-cf tangent-cf
+           hyperbolic-sine-cf hyperbolic-cosine-cf hyperbolic-tangent-cf
            expt-cf
+           rational->cf cfpe))
+
+(module* terms #f
+  (require "consumer-emitters.rkt")
+  (provide phi-terms pi-terms exp-terms
+           sine-terms cosine-terms tangent-terms
+           expt-terms
            (all-from-out "consumer-emitters.rkt")))
 
 (define-syntax (define-continued-fraction stx)
@@ -39,30 +39,37 @@
                      (cf-name (datum->syntax stx
                                              (hyphenate (syntax->datum #'name) 'cf))))
          #'(begin
-             (define (t-name arg ...) body ...)
+             (define (t-name arg ...)
+               (when (and (not (null? (list arg ...)))
+                          (andmap (λ(a) (not (exact? a))) (list arg ...)))
+                 (error 't-name "Exact arguments required."))
+               body ...)
              (define (cf-name arg ...)
-               (cfce1 (t-name arg ...) '((1 0)(0 1)))))))
-      ((_ name body)
+               (when (and (not (null? (list arg ...)))
+                          (andmap (λ(a) (not (exact? a))) (list arg ...)))
+                 (error 'cf-name "Exact arguments required."))
+               (cfce1 (t-name arg ...) '((1 0)(0 1))))))))))
+      #;((_ name body)
        (with-syntax ((t-name (datum->syntax stx
                                             (hyphenate (syntax->datum #'name) 'terms)))
                      (cf-name (datum->syntax stx
                                              (hyphenate (syntax->datum #'name) 'cf))))
          #'(begin
              (define t-name body)
-             (define cf-name (cfce1 t-name '((1 0)(0 1))))))))))
+             (define cf-name (cfce1 t-name '((1 0)(0 1)))))))
 
 (define odds (enumerate-naturals 0 (λ(x) (add1 (* 2 x)))))
 (define evens (enumerate-naturals 0 (λ(x) (* 2 x))))
 (define 1... (endless-values 1))
 (define 0... (endless-values 0))
 
-(define-continued-fraction phi 1...)
+(define-continued-fraction (phi) 1...)
 
 (module+ test
   ; a note for tests: not all convergents will match the output of a continued fraction
-  ; because a convergent might end in ... a 1 == ... (a+1)
-  ; but emitting the actual terms from the continued fraction WON'T respect this
-  ; and will just end in ... a 1 because we've freezed the emission, not terminated it
+  ; because an emission might end in ... a 1 == ... (a+1)
+  ; but expanding the convergent the actual terms from the continued fraction WON'T respect this
+  ; and will just end in ... a+1 because we've freezed the emission, not terminated it
   (require (for-syntax syntax/parse)
            rackunit)
   (define (pull cf . terms)
@@ -85,10 +92,10 @@
     (let ((phi-calc (cfce1 sqrt-5 '((1 1)(0 2)))))
       (parameterize ((precision +inf.0))
         (check-equal? (pull phi-calc 128)
-                      (pull phi-cf 128)
+                      (pull (phi-cf) 128)
                       "(/ (+ 1 (sqrt 5)) 2) = phi")))))
 
-(define-continued-fraction pi
+(define-continued-fraction (pi)
   ; there are many general continued fractions for pi
   ; most converge extremely slowly, just like many of the products and series
   ; by experimentation with the ones I found this is the easiest/fastest
@@ -98,17 +105,12 @@
 (module+ test
   (parameterize ((precision +inf.0))
     (let ((ref (pull (rat 1001262030186123788147677117546011454046175300701051137698775095496/318711602868696242700351405960501012107407621461407582086159833951))))
-      (check-equal? (pull pi-cf (length ref))
+      (check-equal? (pull (pi-cf) (length ref))
                     ref
                     "Continued fraction for pi"))))
 
 
 (define-continued-fraction (exp x)
-  #;(let ((-x (- x)))
-      (let ((numerators (interleave (endless-values x) (endless-values -x)))
-            (denominators (sequence-append (list 1)
-                                           (interleave odds (endless-values 2)))))
-        (make-general-cf denominators numerators)))
   (define-values (p q) (values (numerator x) (denominator x)))
   (define -p (- p))
   (define numerators (interleave (endless-values p) (endless-values -p)))
@@ -339,8 +341,8 @@
                                             (interleave reg-denom-1 reg-denom-2))
                            (sequence-append (list 0 (* r m Q^n))
                                             (interleave reg-num-1 reg-num-2))
-                           (sequence-append (list 0) (endless-values 1))
-                           (sequence-append (list Q^m) (endless-values 0)))))))))
+                           (sequence-append (list 0) 1...)
+                           (sequence-append (list Q^m) 0...))))))))
 
 (module+ test
   (check-convergents (λ(exp) (expt-cf 7933/17417 exp)) 
