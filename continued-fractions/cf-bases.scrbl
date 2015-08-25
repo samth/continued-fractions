@@ -17,8 +17,8 @@
 @section{Arbitrary Base Conversion}
 The bindings in this section are not imported with @racket[continued-fractions].
 @defparam[representation v rep? #:value decimal-representation]
-@defproc[(make-representation [#:radix rad (or/c #f char/c) #\.]
-                              [#:negate neg char/c #\-]
+@defproc[(make-representation [#:radix rad (or/c #f char?) #\.]
+                              [#:negate neg char? #\-]
                               [#:terms ts string? "0123456789"]) rep?]
 This parameter controls the way string conversions happen. It contains information
 about which symbols to use for which numbers, what symbol to use as a radix point, and
