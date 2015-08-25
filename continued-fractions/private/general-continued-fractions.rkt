@@ -19,7 +19,8 @@ n=0
 
 The [1, 0] row vector seems to be a pointless addition, so it 
 is better to utilize the associativity of square matrix multiplication 
-and fold terms if possible. 
+and fold terms if possible. This may mean that convergents may
+only approach from one direction.
 |#
 
 (define (general-cf a b c d #:force (times #f)) ; [ [a, b], [c, d] ]
@@ -89,19 +90,3 @@ and fold terms if possible.
              next-position
              (values->pair (sequence-generate* terms))
              continue? #f #f))))
-#| SQUARE ROOTS
-let √N = √(a^2 + b) = a + d
-then
-a^2 + b = a^2 + 2ad + d^2
-b = 2ad + d^2 = d (2a + d)
-so d = b/(2a + d) = b/(2a + b/(2a + ...))
-then √N = a + d = a + b/(2a + b/(2a + ...))
-which is 
-                    ∞
- [ [a, b], [1, 0] ] Π [ [2a, b], [1, 0] ]
-                   n=0
-If we collapse pairs of the matrix product we get the repeating matrix product
-                    ∞
- [ [a, b], [1, 0] ] Π [ [4a^2 + b, 2ab], [2a, b] ]
-                   n=0
-|#

@@ -1,6 +1,5 @@
 #lang racket/base
-(require racket/list
-         "private/consumer-emitters.rkt")
+(require "consumer-emitters.rkt")
 
 (provide cf+ cf- cf* cf/)
 

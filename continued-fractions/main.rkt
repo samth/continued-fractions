@@ -1,8 +1,8 @@
 #lang racket/base
-(require "arithmetic.rkt"
+(require "private/arithmetic.rkt"
          "private/continued-fractions.rkt")
 
-(provide (all-from-out "arithmetic.rkt")
+(provide (all-from-out "private/arithmetic.rkt")
          phi-cf pi-cf
          exp-cf
          ln-cf log-cf
