@@ -486,7 +486,7 @@
      (let ((ts (map car state)))
        (if (zero? (cadr ts))
            (simple-arithmetic-2 #f #f #f #f #f #f)
-           (rat (round (apply / ts))))))
+           (rational->cf (round (apply / ts))))))
    (define (->next ce)
      ; take the term already pulled by the sequence out of the state matrix
      ; start looping to generate the next term
@@ -512,40 +512,36 @@
      (define-values (a b c d e f g h)
        (state->values state))
      (define get-y?
-       (let ((y->infty-num (+ a c))
-             (y->infty-den (+ e g))
-             (y->1-num (+ a b c d))
-             (y->1-den (+ e f g h)))
-         (if (or (zero? y->infty-den)
-                 (zero? y->1-den)
-                 (zero? e)
-                 (zero? f)
-                 (not (= (sign e) (sign f)))
-                 (not (= (quotient a e)
-                         (quotient b f))))
-             #t
-             (not (= (quotient y->infty-num 
-                               y->infty-den)
-                     (quotient y->1-num 
-                               y->1-den))))))
+       (let ((Lid e)
+             (L1d (+ e f))
+             (Rid g)
+             (R1d (+ g h)))
+         (or (ormap zero? (list Lid L1d Rid R1d))
+             (not (= (sign Lid) (sign L1d)))
+             (not (= (sign Rid) (sign R1d)))
+             (not (= (quotient a Lid)
+                     (quotient (+ a b) L1d)))
+             (not (= (quotient c Rid)
+                     (quotient (+ c d) R1d)))))
+       )
      (define get-x?
-       (let ((x->infty-num (+ a b))
-              (x->infty-den (+ e f))
-              (x->1-num (+ a b c d))
-              (x->1-den (+ e f g h)))
-          (if (or (zero? x->infty-den)
-                  (zero? x->1-den)
-                  (zero? e)
-                  (zero? g)
-                  (not (= (sign e) (sign g)))
-                  (not (= (quotient a e)
-                          (quotient c g))))
-              #t
-              (not (= (quotient x->infty-num 
-                                x->infty-den)
-                      (quotient x->1-num 
-                                x->1-den))))))
-     (cond ((and get-x? get-y?)
+       ;((a c)(e g)).X and ((b d)(f h)).X
+       (let ((Lid e)
+             (L1d (+ e g))
+             (Rid f)
+             (R1d (+ f h)))
+         (or (ormap zero? (list Lid L1d Rid R1d))
+             (not (= (sign Lid) (sign L1d)))
+             (not (= (sign Rid) (sign R1d)))
+             (not (= (quotient a Lid)
+                     (quotient (+ a c) L1d)))
+             (not (= (quotient b Rid)
+                     (quotient (+ b d) R1d)))))
+       )
+     (cond ((zero? h) ; both X and Y update h so it is important to catch this
+                      ; otherwise you can get into an infinite loop of getting just X or Y
+            'xy)
+           ((and get-x? get-y?)
             'xy)
            (get-x? 'x)
            (get-y? 'y)
