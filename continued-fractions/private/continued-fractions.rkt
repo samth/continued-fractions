@@ -139,7 +139,7 @@
     (define b (/ x (expt a n)))
     (values a b n))
   (cond ((<= x 0)
-         (error 'ln-cf "Real logarithm undefined for (<= 0 x): ~a" x))
+         (error 'ln-cf "Real logarithm undefined for (<= x 0): ~a" x))
         ((< 0 x 2)
          (ln-base-cf x))
         (else
