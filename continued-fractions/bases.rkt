@@ -11,8 +11,7 @@
          ->number
          string->string)
 
-(struct rep (radix negate terms)
-  #:prefab)
+(struct rep (radix negate terms))
 
 (define default-terms "0123456789")
 (define default-radix #\.)

@@ -17,6 +17,7 @@
 @section{Arbitrary Base Conversion}
 @subsection{Configuration}
 The bindings in this section are not imported with @racket[continued-fractions].
+@defproc[(rep? [v any/c]) boolean?]
 @defparam[representation v rep? #:value decimal-representation]
 @defproc[(make-representation [#:radix rad (or/c #f char?) #\.]
                               [#:negate neg char? #\-]
