@@ -56,12 +56,12 @@ the "most irrational" number; that is, the number that is hardest to approximate
 Continued fractions are amendable to term-at-a-time arithmetic. Suppose we have a function
 @nonbreaking{f(x) = (ax+b)/(cx+d),} where x is a continued fraction of the form
 @nonbreaking{x = t + 1/x',} x' being the rest of the continued fraction. Then when
-f consumes the leading term t, x goes to 1/x', which after multiplication to get f back
+f consumes the leading term t, x goes to @nonbreaking{t+1/x',} which after multiplication to get f back
 in the same form, has updated the coefficients. If the continued fraciton x is in standard form,
 then we have guarantees about every term except the first nonzero term, namely, that it will lie
 somewhere between 1 and infinity (a terminated continued fraction). Then if the limits of f
 as x goes to 1 and as x goes to infinity agree it does not matter what the value of x' is as
-the leading term of f is already determined. Wwe can take a quotient term out of the function, and
+the leading term of f is already determined. We can take a quotient term out of the function, and
 f then goes to @nonbreaking{t + 1/f'.}
 
 For further details, reference the MIT HAKMEM memo 239 (Gosper).
