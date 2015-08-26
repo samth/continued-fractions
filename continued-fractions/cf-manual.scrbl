@@ -217,7 +217,6 @@ something like @racket['(2 10000000000000000000000)] or @racket['(1 1 9999999999
  of the integer-part; instead, all terms are negative.}
 @examples[#:eval this-eval
           (define phi (cf/ (cf+ 1 (expt-cf 5 1/2)) 2))
-          phi
           (for/list ((t (base-emit phi 10))
                      (i (in-range 20)))
             t)

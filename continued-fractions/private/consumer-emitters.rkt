@@ -119,14 +119,21 @@
   (struct struct-name (accessors ...)
     #:methods gen:custom-write
     [(define (write-proc ce port mode)
-       (let* ((t (->term (init ce)))
+       #;(let* ((ce* (struct-copy struct-name ce))
+              (t (->term (init ce*)))
               (base-rep (format "(~a ...)" (if t t 'infinity)))
               (mod (λ(s) (format "<continued-fraction: ~a>" s))))
           (let ((out (case mode
                        ((#t) (λ(v p) (write (mod v) p)))
                        ((#f) display)
                        (else (λ(v p) (print (mod v) p mode))))))
-            (out base-rep port))))]
+            (out base-rep port)))
+       (let ((out (case mode
+                    ((#t) (λ(v p) (write v p)))
+                    ((#f) display)
+                    (else (λ(v p) (print v p mode))))))
+         (out "<continued-fraction>" port)
+       ))]
     #:methods gen
     [(define-syntax-rule (sv (fld ooo) v)
        (define-struct-fields struct-name (fld ooo) v))
@@ -244,7 +251,9 @@
            (simple-arithmetic #f #f #f #f)
            (rational->cf (apply / ts)))))
    (define (init ce)
-     (consume ce (consume-limit)))
+     (if (not (->term ce))
+         (consume ce (consume-limit))
+         ce))
    (define (consume ce limit)
      ; if the generator died, then finish the rational
      ; if we reached our limit for consume attempts, finish the rational
@@ -337,7 +346,9 @@
                (precision-emitter #f #f #f #f #f)
                (rational->cf (apply / ts))))))
    (define (init ce)
-     (consume ce (consume-limit)))
+     (if (not (->term ce))
+         (consume ce (consume-limit))
+         ce))
    (define (consume ce limit)
      ; if the generator died, then finish the rational
      ; if we reached our limit for consume attempts, finish the rational
@@ -422,7 +433,9 @@
                (base-emitter n #f #f #f #f))
            (base-emitter n #f #f #f #f))))
    (define (init ce)
-     (consume ce (consume-limit)))
+     (if (not (->term ce))
+         (consume ce (consume-limit))
+         ce))
    (define (consume ce limit)
      ; if the generator died, then finish the rational
      ; if we reached our limit for consume attempts, finish the rational
@@ -501,7 +514,9 @@
            (consume (simple-arithmetic-2 term state* x xgen y ygen) (consume-limit)))
          (consume ce (consume-limit))))
    (define (init ce)
-     (consume ce (consume-limit)))
+     (if (not (->term ce))
+         (consume ce (consume-limit))
+         ce))
    (define (consume-which? ce)
      ; see if the state matrix has different limits for combinations
      ;
