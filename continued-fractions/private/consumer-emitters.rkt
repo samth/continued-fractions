@@ -251,9 +251,9 @@
            (simple-arithmetic #f #f #f #f)
            (rational->cf (apply / ts)))))
    (define (init ce)
-     (if (not (->term ce))
-         (consume ce (consume-limit))
-         ce))
+     (struct-values (state generator) ce)
+     (let-values (((it* gen*) (sequence-generate* generator)))
+       (consume (simple-arithmetic #f state (kar it*) gen*) (consume-limit))))
    (define (consume ce limit)
      ; if the generator died, then finish the rational
      ; if we reached our limit for consume attempts, finish the rational
@@ -302,8 +302,7 @@
   #:property prop:sequence)
 
 (define (cfce1 cf state)
-  (let-values (((it gen) (sequence-generate* cf)))
-    (simple-arithmetic #f state (kar it) gen)))
+  (simple-arithmetic #f state #f cf))
 
 (module+ test
   (check-equal? (pull (cfce1 (rat 123/456) '((1 5) (0 1))))
@@ -346,9 +345,9 @@
                (precision-emitter #f #f #f #f #f)
                (rational->cf (apply / ts))))))
    (define (init ce)
-     (if (not (->term ce))
-         (consume ce (consume-limit))
-         ce))
+     (struct-values (state accum generator) ce)
+     (let-values (((it* gen*) (sequence-generate* generator)))
+       (consume (precision-emitter #f state accum (kar it*) gen*) (consume-limit))))
    (define (consume ce limit)
      ; if the generator died, then finish the rational
      ; if we reached our limit for consume attempts, finish the rational
@@ -405,8 +404,7 @@
   )
 
 (define (precision-emit cf)
-  (let-values (((it gen) (sequence-generate* cf)))
-    (precision-emitter #f '((1 0)(0 1)) '(0 1) (kar it) gen)))
+  (precision-emitter #f '((1 0)(0 1)) '(0 1) #f cf))
 
 (ce-struct base-emitter (term state inner-term generator transformer)
   #:methods gen:continued-fraction
@@ -433,9 +431,9 @@
                (base-emitter n #f #f #f #f))
            (base-emitter n #f #f #f #f))))
    (define (init ce)
-     (if (not (->term ce))
-         (consume ce (consume-limit))
-         ce))
+     (struct-values (state generator transformer) ce)
+     (let-values (((it* gen*) (sequence-generate* generator)))
+       (consume (base-emitter #f state (kar it*) gen* transformer) (consume-limit))))
    (define (consume ce limit)
      ; if the generator died, then finish the rational
      ; if we reached our limit for consume attempts, finish the rational
@@ -483,8 +481,7 @@
   #:property prop:sequence)
 
 (define (base-emit cf base)
-  (let-values (((it gen) (sequence-generate* cf)))
-    (base-emitter #f '((1 0)(0 1)) (kar it) gen (base-transformer base))))
+  (base-emitter #f '((1 0)(0 1)) #f cf (base-transformer base)))
 
 (module+ test
   (check-equal? (pull (base-emit (rat 1/10) 2) 20)
@@ -514,9 +511,10 @@
            (consume (simple-arithmetic-2 term state* x xgen y ygen) (consume-limit)))
          (consume ce (consume-limit))))
    (define (init ce)
-     (if (not (->term ce))
-         (consume ce (consume-limit))
-         ce))
+     (struct-values (state xgen ygen) ce)
+     (let-values (((x* xgen*) (sequence-generate* xgen))
+                  ((y* ygen*) (sequence-generate* ygen)))
+       (consume (simple-arithmetic-2 #f state (kar x*) xgen* (kar y*) ygen*) (consume-limit))))
    (define (consume-which? ce)
      ; see if the state matrix has different limits for combinations
      ;
@@ -650,6 +648,4 @@
   #:property prop:sequence)
 
 (define (cfce2 x y state)
-  (let-values (((x xgen) (sequence-generate* x))
-               ((y ygen) (sequence-generate* y)))
-    (simple-arithmetic-2 #f state (kar x) xgen (kar y) ygen)))
+  (simple-arithmetic-2 #f state #f x #f y))

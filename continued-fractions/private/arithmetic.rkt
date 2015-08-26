@@ -85,3 +85,21 @@
          (bin/ 1 (car ts)))
         (else
          (bin/ (car ts) (apply cf* (cdr ts))))))
+
+(module+ test
+  (require rackunit
+           "continued-fractions.rkt")
+  (define ~phi (cf/ (cf+ 1 (phi-cf)) 2))
+  (check-equal? (for/list ((t (base-emit ~phi 10))
+                           (i (in-range 20)))
+                  t)
+                (for/list ((t (base-emit ~phi 10))
+                           (i (in-range 20)))
+                  t))
+  (define ~~phi (base-emit ~phi 10))
+  (check-equal? (for/list ((t ~~phi)
+                           (i (in-range 20)))
+                  t)
+                (for/list ((t ~~phi)
+                           (i (in-range 20)))
+                  t)))
