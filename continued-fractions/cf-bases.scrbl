@@ -58,7 +58,7 @@ a string based on the parameter @racket[representation].
           (parameterize ((digits 20))
             (continued-fraction->string (phi-cf)))
           (define ~phi
-            (for/list ((t (cfbe (phi-cf) 10))
+            (for/list ((t (base-emit (phi-cf) 10))
                        (i (in-range 40)))
               t))
           (continued-fraction->string ~phi)
@@ -67,7 +67,7 @@ a string based on the parameter @racket[representation].
             @code:comment{the terms in the continued fraction as a}
             @code:comment{simple continued fraction, but this isn't}
             @code:comment{a simple continued fraction, it's decimal}
-            (continued-fraction->string (cfbe (phi-cf) 10)))
+            (continued-fraction->string (base-emit (phi-cf) 10)))
           ]
 
 @subsection{Converting Numbers and Strings}
