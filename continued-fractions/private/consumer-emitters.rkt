@@ -9,14 +9,14 @@
 ; EVERY public function must return a simple continued fraction
 ;   as a SEQUENCE of TERMS
 (provide consume-limit precision
-         consumer-emitter?
+         continued-fraction?
          standard-transformer base-transformer
          cf-terms->rational
          rat rational->cf
          simple-arithmetic cfce1
          simple-arithmetic-2 cfce2
-         base-emitter cfbe
-         precision-emitter cfpe
+         base-emitter base-emit
+         precision-emitter precision-emit
          )
 #|
 (define (quotient*/remainder a b)
@@ -67,14 +67,14 @@
 ; form can be simplified from the bihomographic to the standard
 ; case. Racket sequences cannot "append themselves" without
 ; convoluted constructs so some sort of parent sequence is needed.
-(define-generics consumer-emitter
-  (->term consumer-emitter)
-  (->next consumer-emitter)
-  (force consumer-emitter)
-  (emit-ok? consumer-emitter)
-  (init consumer-emitter)
-  (emit consumer-emitter)
-  (consume consumer-emitter limit)
+(define-generics continued-fraction
+  (->term continued-fraction)
+  (->next continued-fraction)
+  (force continued-fraction)
+  (emit-ok? continued-fraction)
+  (init continued-fraction)
+  (emit continued-fraction)
+  (consume continued-fraction limit)
   )
 
 (define (standard-transformer t)
@@ -139,7 +139,7 @@
 ; the rat ce just holds a list of expanded terms for the rational
 ; it isn't really like the other consumer-emitters
 (ce-struct rat (term)
-  #:methods gen:consumer-emitter
+  #:methods gen:continued-fraction
   [(define (->term ce)
      (car (rat-term ce)))
    (define (->next ce)
@@ -223,7 +223,7 @@
   (if it (car it) it))
 
 (ce-struct simple-arithmetic (term state inner-term generator)
-  #:methods gen:consumer-emitter
+  #:methods gen:continued-fraction
   [(define (->term ce)
      (simple-arithmetic-term ce))
    (define (->next ce)
@@ -311,7 +311,7 @@
                    '(0 -2 1 10 1  2  2  2  1  12  1  2  2  2  1  12  1  2  2  2))))
 
 (ce-struct precision-emitter (term state accum inner-term generator)
-  #:methods gen:consumer-emitter
+  #:methods gen:continued-fraction
   [(define (->term ce)
      (precision-emitter-term ce))
    (define (->next ce)
@@ -393,12 +393,12 @@
   #:property prop:sequence
   )
 
-(define (cfpe cf)
+(define (precision-emit cf)
   (let-values (((it gen) (sequence-generate* cf)))
     (precision-emitter #f '((1 0)(0 1)) '(0 1) (kar it) gen)))
 
 (ce-struct base-emitter (term state inner-term generator transformer)
-  #:methods gen:consumer-emitter
+  #:methods gen:continued-fraction
   [(define (->term ce)
      (base-emitter-term ce))
    (define (->next ce)
@@ -469,18 +469,18 @@
      (base-emitter-term ce))]
   #:property prop:sequence)
 
-(define (cfbe cf base)
+(define (base-emit cf base)
   (let-values (((it gen) (sequence-generate* cf)))
     (base-emitter #f '((1 0)(0 1)) (kar it) gen (base-transformer base))))
 
 (module+ test
-  (check-equal? (pull (cfbe (rat 1/10) 2) 20)
+  (check-equal? (pull (base-emit (rat 1/10) 2) 20)
                 '(0 0 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0 0))
-  (check-equal? (pull (cfbe (rat 3/2) 3) 20)
+  (check-equal? (pull (base-emit (rat 3/2) 3) 20)
                 (build-list 20 (λ(x) 1))))
 
 (ce-struct simple-arithmetic-2 (term state x xgen y ygen)
-  #:methods gen:consumer-emitter
+  #:methods gen:continued-fraction
   [(define (state->values state)
      (apply values (append (car state) (cadr state))))
    (define (->term ce)

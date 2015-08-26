@@ -37,7 +37,7 @@ never displayed.
 Controls the number of fractional digits produced.
 
 @subsection{Converting Continued Fractions}
-@defproc[(continued-fraction->string [cf (or/c consumer-emitter? (listof exact-integer?))])
+@defproc[(continued-fraction->string [cf (or/c continued-fraction? (listof exact-integer?))])
          string?]
 Converts a continued fraction, or a representation of one as a list of exact integers, into
 a string based on the parameter @racket[representation].

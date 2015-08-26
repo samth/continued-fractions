@@ -46,7 +46,8 @@ are not all 1s, such as the continued fraction for pi which can be written
 @subsection[#:tag "precision"]{Precision}
 When considered as a regular continued fraction, terminating the continued fraction at some point
 yields a rational n/d, called a "convergent." Then the absolute value of the difference between this
-rational and the value of the full continued fraction is less than @nonbreaking{1/(d^2√5).}
+rational and the value of the full continued fraction is less than one divided the product of the
+denominators of this convergent and the next best convergent.
 This factor is a worst-case scenario, most continued fractions have convergents with much better
 precision. In fact, the golden ratio @nonbreaking{φ = (1+√5)/2} is the worst case, constantly
 staying just inside the bounds. Because of this, the golden ratio is sometimes called
@@ -83,35 +84,35 @@ continued fraction generated, then the standard use should be something like
                term)]
 It is important to have a limiting sequence included in the for-clause because the provided continued
 fraction procedures of transcendental and algebraic functions tend to produce an infinite number of terms.
-@defproc[(rational->cf [n exact?]) consumer-emitter?]{Creates a continued fraction representation of the
+@defproc[(rational->cf [n exact?]) continued-fraction?]{Creates a continued fraction representation of the
  argument.}
 @defproc[(cf-terms->rational [cf (listof (and/c number? exact?))]) rational?]{Interprets a list of terms
  as a continued fraction expansion of a rational, and gives that rational.}
-@defproc[(consumer-emitter? [v any/c]) boolean?]{Determines whether the argument is a continued fraction.}
-@defproc[(phi-cf) consumer-emitter?]{A continued fraction of the golden ratio.}
-@defproc[(pi-cf) consumer-emitter?]{A continued fraction of pi.}
-@defproc[(exp-cf [n exact?]) consumer-emitter?]{A continued fraction of the natural exponential function.}
-@defproc[(ln-cf [n exact?]) consumer-emitter?]{A continued fraction of the natural logarithm function.}
+@defproc[(continued-fraction? [v any/c]) boolean?]{Determines whether the argument is a continued fraction.}
+@defproc[(phi-cf) continued-fraction?]{A continued fraction of the golden ratio.}
+@defproc[(pi-cf) continued-fraction?]{A continued fraction of pi.}
+@defproc[(exp-cf [n exact?]) continued-fraction?]{A continued fraction of the natural exponential function.}
+@defproc[(ln-cf [n exact?]) continued-fraction?]{A continued fraction of the natural logarithm function.}
 @defproc[(log-cf [b (and/c exact? integer? (>/c 1))]
-                 [n exact?]) consumer-emitter?]{A continued fraction for the base-b logarithm function.}
-@defproc[(sine-cf [n exact?]) consumer-emitter?]{}
-@defproc[(cosine-cf [n exact?]) consumer-emitter?]{}
-@defproc[(tangent-cf [n exact?]) consumer-emitter?]{Standard trigonometric functions.}
-@defproc[(hyperbolic-sine-cf [n exact?]) consumer-emitter?]{}
-@defproc[(hyperbolic-cosine-cf [n exact?]) consumer-emitter?]{}
-@defproc[(hyperbolic-tangent-cf [n exact?]) consumer-emitter?]{Standard hyperbolic functions.}
+                 [n exact?]) continued-fraction?]{A continued fraction for the base-b logarithm function.}
+@defproc[(sine-cf [n exact?]) continued-fraction?]{}
+@defproc[(cosine-cf [n exact?]) continued-fraction?]{}
+@defproc[(tangent-cf [n exact?]) continued-fraction?]{Standard trigonometric functions.}
+@defproc[(hyperbolic-sine-cf [n exact?]) continued-fraction?]{}
+@defproc[(hyperbolic-cosine-cf [n exact?]) continued-fraction?]{}
+@defproc[(hyperbolic-tangent-cf [n exact?]) continued-fraction?]{Standard hyperbolic functions.}
 @defproc[(expt-cf [base exact?]
-                  [exponent exact?]) consumer-emitter?]{Raising exact numbers to exact rational powers.}
+                  [exponent exact?]) continued-fraction?]{Raising exact numbers to exact rational powers.}
 
 @subsection{Arithmetic Procedures}
-@defproc[(cf+ [v (or/c exact-integer? consumer-emitter?)] ...)
-         (or/c exact-integer? consumer-emitter?)]
-@defproc[(cf- [v (or/c exact-integer? consumer-emitter?)] ...)
-         (or/c exact-integer? consumer-emitter?)]
-@defproc[(cf* [v (or/c exact-integer? consumer-emitter?)] ...)
-         (or/c exact-integer? consumer-emitter?)]
-@defproc[(cf/ [v (or/c exact-integer? consumer-emitter?)] ...)
-         (or/c exact-integer? consumer-emitter?)]{Standard arithmetic procedures for continued fractions.}
+@defproc[(cf+ [v (or/c exact-integer? continued-fraction?)] ...)
+         (or/c exact-integer? continued-fraction?)]
+@defproc[(cf- [v (or/c exact-integer? continued-fraction?)] ...)
+         (or/c exact-integer? continued-fraction?)]
+@defproc[(cf* [v (or/c exact-integer? continued-fraction?)] ...)
+         (or/c exact-integer? continued-fraction?)]
+@defproc[(cf/ [v (or/c exact-integer? continued-fraction?)] ...)
+         (or/c exact-integer? continued-fraction?)]{Standard arithmetic procedures for continued fractions.}
 @(define this-eval (make-base-eval))
 @interaction-eval[#:eval this-eval
                   (require (only-in racket/math pi)
@@ -133,11 +134,11 @@ of terms continued fractions are allowed to consume while they attempt to produc
            @item{The current state is coerced to a rational and the terms of this rational
              become the rest of the sequence.}
            #:style 'ordered]}
-@defproc[(cfpe (cf consumer-emitter?)) consumer-emitter?]
+@defproc[(precision-emit (cf continued-fraction?)) continued-fraction?]
 @defparam[precision n (and/c positive? number?)
           #:value (expt 2 30)]{Ordinarily, continued fractions are allowed to produce as many terms as
  requested. But this behavior can be controlled with the combined use
- of @racket[cfpe] and @racket[precision]. The @racket[precision] parameter
+ of @racket[precision-emit] and @racket[precision]. The @racket[precision] parameter
  represents the denominator in the error bound of the approximation
  (see @seclink["precision"]), so a value of @racket[100] means that
  the absolute value of the error between the continued fraction and
@@ -149,16 +150,16 @@ of terms continued fractions are allowed to consume while they attempt to produc
 @examples[#:eval this-eval
           (define ~pi
             (parameterize ((precision 1000))
-              (for/list ((t (cfpe (pi-cf))))
+              (for/list ((t (precision-emit (pi-cf))))
                 t)))
           ~pi
           (abs (/ (- pi (cf-terms->rational ~pi))))
           (parameterize ((precision 3748630))
-            (for/list ((t (cfpe (pi-cf))))
+            (for/list ((t (precision-emit (pi-cf))))
               t))
           (displayln
            (parameterize ((precision +inf.0))
-             (for/list ((t (cfpe (pi-cf)))
+             (for/list ((t (precision-emit (pi-cf)))
                         (i (in-range 40)))
                t)))
           (displayln
@@ -169,7 +170,7 @@ of terms continued fractions are allowed to consume while they attempt to produc
 @subsection{Arithmetic Caveats}
 There is no way, in general, to determine whether an infinite continued fraction is exactly a rational number;
 particularly whether it is zero. And there is no way to know whether some arithmetic expression is zero, so
-therefore there is no way to determine whether we are dividing by zero. But continued fraction arithmetic is
+therefore there is no way to determine if we are dividing by zero. But continued fraction arithmetic is
 a little more lenient in that division by zero is "possible" in the degenerate sense that the empty continued
 fraction is infinity. (For a justification of this, please see "Exact Real Computer Arithmetic with
 Continued Fractions," Vuillemin (1988).) Thus, division by zero in this library will not produce errors but
@@ -187,7 +188,7 @@ instead empty continued fractions.
             t)
           (for/list ((t (cf/ (rational->cf 0) (rational->cf 0))))
             t)]
-Expression which yield exact rationals from infinite continued fractions have their own problems. It would
+Expressions which yield exact rationals from infinite continued fractions have their own problems. It would
 take an infinite number of terms to yield the rational but at any one time we've only ever taken a
 finite number of them.
 @examples[#:eval this-eval
@@ -201,13 +202,13 @@ finite number of them.
 It would not matter how far we increased the consume limit as we could never increase it to infinity. In
 the case of the arithmetic of two continued fractions, if neither continued fraction has run out of terms
 by the time @racket[consume-limit] is reached then it rounds the internal rational. Thus, in the calculation
-of @racket[(* (sqrt 2) (sqrt 2))] above the guess made by the library is @racket['(2)] rather than
+of @racket[(cf* (sqrt 2) (sqrt 2))] above the guess made by the library is @racket['(2)] rather than
 something like @racket['(2 10000000000000000000000)] or @racket['(1 1 99999999999999999999999)]. 
 
 @subsection{Emitting Terms in Specific Number Bases}
-@defproc[(cfbe [v consumer-emitter?]
+@defproc[(base-emit [v continued-fraction?]
                [b (and/c exact-integer? (>/c 1))])
-         consumer-emitter?]{Emits terms as if it were a base-b expansion rather than a
+         continued-fraction?]{Emits terms as if it were a base-b expansion rather than a
  continued fraction. The integer part does not respect the limits of the base as there is otherwise no
  way to determine where it would end, so this is mostly interesting for the fractional parts of numbers.
  
@@ -217,19 +218,19 @@ something like @racket['(2 10000000000000000000000)] or @racket['(1 1 9999999999
 @examples[#:eval this-eval
           (define phi (cf/ (cf+ 1 (expt-cf 5 1/2)) 2))
           phi
-          (for/list ((t (cfbe phi 10))
+          (for/list ((t (base-emit phi 10))
                      (i (in-range 20)))
             t)
           (/ (+ 1 (sqrt 5)) 2)
-          (for/list ((t (cfbe (rational->cf 1/10) 2))
+          (for/list ((t (base-emit (rational->cf 1/10) 2))
                      (i (in-range 20)))
             t)
-          (for/list ((t (cfbe (rational->cf 2/3) 3)))
+          (for/list ((t (base-emit (rational->cf 2/3) 3)))
             t)
-          (for/list ((t (cfbe (rational->cf 101/3) 3))
+          (for/list ((t (base-emit (rational->cf 101/3) 3))
                      (i (in-range 20)))
             t)
-          (for/list ((t (cfbe (cf- (phi-cf) (exp-cf 1)) 10))
+          (for/list ((t (base-emit (cf- (phi-cf) (exp-cf 1)) 10))
                      (i (in-range 20)))
             t)]
 

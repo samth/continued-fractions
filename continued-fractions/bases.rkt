@@ -100,7 +100,7 @@
 
 (define (continued-fraction->string cf)
   (define cf-like-list?
-    (or (consumer-emitter? cf)
+    (or (continued-fraction? cf)
         (and (list? cf)
              (andmap (λ(n) (and (integer? n)
                                 (exact? n)))
@@ -110,8 +110,8 @@
            "Expected a continued fraction or list of integers: ~a" cf))
   (define B (get-base))
   (define base (vector-length (get-base)))
-  (define cf-list (if (consumer-emitter? cf)
-                      (for/list ((t (cfbe cf base))
+  (define cf-list (if (continued-fraction? cf)
+                      (for/list ((t (base-emit cf base))
                                  (i (in-range (add1 (digits))))) ; add1 because of leading integer-part
                         t)
                       cf))
