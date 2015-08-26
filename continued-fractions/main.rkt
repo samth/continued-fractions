@@ -3,6 +3,7 @@
          "private/continued-fractions.rkt")
 
 (provide rational->cf cf-terms->rational
+         consume-limit
          base-emit
          precision precision-emit
          (all-from-out "private/arithmetic.rkt")
