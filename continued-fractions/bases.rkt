@@ -1,12 +1,15 @@
 #lang racket/base
 
-(require racket/local
+(require racket/local racket/dict
          "private/consumer-emitters.rkt")
 
 (provide representation make-representation
-         continued-fraction->string
          rep?
-         digits)
+         digits
+         continued-fraction->string
+         ->string
+         ->number
+         string->string)
 
 (struct rep (radix negate terms)
   #:prefab)
@@ -116,8 +119,75 @@
   (define i-part (integer->string (abs (car cf-list))))
   (define f-part (map (λ(n) (number->rep 'continued-fraction->string n))
                       (map abs (cdr cf-list))))
-  (string-append (if (negative? (cadr cf-list)) (format "~a" (get-negate)) "")
+  (string-append (if (ormap negative? cf-list) (format "~a" (get-negate)) "")
                  i-part
                  (if radix
-                     (list->string (cons radix f-part))
+                     (if (null? f-part)
+                         ""
+                         (list->string (cons radix f-part)))
                      (list->string f-part))))
+
+(define (make-reverse-ref)
+  (define dict (make-hasheqv))
+  (for ((t (in-vector (get-base)))
+        (i (in-naturals)))
+    (dict-set! dict t i))
+  (λ(c)
+    (dict-ref dict c c)))
+
+(define (->number s)
+  (define radix (get-radix))
+  (define B (vector-length (get-base)))
+  (define ref (make-reverse-ref))
+  (define (loc->ipart+loc loc) ; removing the integer part, assuming negative is out
+    (for/fold ((ipart '())
+               (remainder loc))
+              ((c loc)
+               #:break (eqv? c radix))
+      (values (cons (ref c) ipart)
+              (cdr remainder))))
+  (define (loc->fpart loc)
+    (for/fold ((fpart '()))
+              ((c loc))
+      (cons (ref c) fpart)))
+  (and (string? s)
+       (let* ((loc (string->list s))
+              (neg? (eqv? (car loc) (get-negate))))
+         (let-values (((ipart loc*) (loc->ipart+loc (if neg? (cdr loc) loc))))
+           (and (andmap number? ipart)
+                (let ((fpart (if (null? loc*) '() (loc->fpart (cdr loc*)))))
+                  (and (andmap number? fpart)
+                       (let ((fpart* (if (null? fpart)
+                                         (list 0)
+                                         fpart)))
+                         (let ((i (foldr (λ(t a) (+ t (* B a))) 0 ipart))
+                               (f (foldr (λ(t a) (+ t (* B a))) 0 fpart*)))
+                           (let ((n (+ i (/ f (expt B (length fpart*))))))
+                             (if neg?
+                                 (* n -1)
+                                 n)))))))))))
+
+(define (->string n)
+  (continued-fraction->string (rational->cf n)))
+
+(define (string->string s rep*)
+  (let ((n (->number s)))
+    (and n
+         (rep? rep*)
+         (parameterize ((representation rep*))
+           (->string n)))))
+
+(module+ test
+  (require rackunit)
+  (check-equal? (->string (+ 12 1/2))
+                "12.5")
+  (parameterize ((representation
+                  (make-representation #:terms "ab")))
+    (check-equal? (->string (+ 4 1/2))
+                  "baa.b"))
+  (parameterize ((representation
+                  (make-representation #:radix #\/
+                                       #:terms "0123456789abcdef")))
+    (let ((n 123))
+      (check-equal? (->string n)
+                    (number->string n 16)))))
